@@ -63,6 +63,7 @@ export function Button({
         opacity: disabled || loading ? 0.5 : 1,
         transition: transition.fast,
         outline: 'none',
+        whiteSpace: 'nowrap',
         ...variantStyles[variant],
         ...sizeStyles[size],
         ...style,

@@ -10,6 +10,8 @@ export interface ChannelSidebarProps {
   onSelectChannel: (channelId: string) => void
   onCreateChannel?: () => void
   canCreateChannel?: boolean
+  collapsed?: boolean
+  onToggle?: () => void
 }
 
 export function ChannelSidebar({
@@ -19,7 +21,71 @@ export function ChannelSidebar({
   onSelectChannel,
   onCreateChannel,
   canCreateChannel = false,
+  collapsed = false,
+  onToggle,
 }: ChannelSidebarProps) {
+  const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0)
+  const activeChannel = channels.find((c) => c.id === activeChannelId)
+
+  if (collapsed) {
+    return (
+      <div style={{
+        width: 44,
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        background: color.surface1,
+        borderRight: `1px solid ${color.border}`,
+        paddingTop: space[2],
+        gap: space[2],
+      }}>
+        <button
+          onClick={onToggle}
+          title="Show channels"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: color.textSecondary,
+            cursor: 'pointer',
+            fontSize: '18px',
+            lineHeight: 1,
+            padding: space[2],
+            borderRadius: radius.sm,
+            position: 'relative',
+            outline: 'none',
+          }}
+        >
+          ≡
+          {totalUnread > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: color.brandPrimary,
+              display: 'block',
+            }} />
+          )}
+        </button>
+        {activeChannel && (
+          <span style={{
+            fontSize: 9,
+            color: color.textMuted,
+            writingMode: 'vertical-rl',
+            overflow: 'hidden',
+            maxHeight: 100,
+            whiteSpace: 'nowrap',
+          }}>
+            #{activeChannel.name}
+          </span>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={{
       width: 200,
@@ -35,28 +101,51 @@ export function ChannelSidebar({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: `${space[3]} ${space[3]} ${space[2]}`,
+        flexShrink: 0,
       }}>
         <span style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: color.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           Channels
         </span>
-        {canCreateChannel && onCreateChannel && (
-          <button
-            onClick={onCreateChannel}
-            title="Create channel"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: color.textMuted,
-              cursor: 'pointer',
-              fontSize: fontSize.md,
-              lineHeight: 1,
-              padding: `0 ${space[1]}`,
-              borderRadius: radius.sm,
-            }}
-          >
-            +
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: space[1] }}>
+          {onToggle && (
+            <button
+              onClick={onToggle}
+              title="Collapse"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: color.textMuted,
+                cursor: 'pointer',
+                fontSize: fontSize.base,
+                lineHeight: 1,
+                padding: `0 ${space[1]}`,
+                borderRadius: radius.sm,
+                outline: 'none',
+              }}
+            >
+              ‹
+            </button>
+          )}
+          {canCreateChannel && onCreateChannel && (
+            <button
+              onClick={onCreateChannel}
+              title="Create channel"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: color.textMuted,
+                cursor: 'pointer',
+                fontSize: fontSize.md,
+                lineHeight: 1,
+                padding: `0 ${space[1]}`,
+                borderRadius: radius.sm,
+                outline: 'none',
+              }}
+            >
+              +
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', paddingBottom: space[3] }}>
@@ -83,6 +172,7 @@ export function ChannelSidebar({
                 fontSize: fontSize.sm,
                 transition: 'background 100ms ease',
                 width: '100%',
+                outline: 'none',
               }}
               onMouseEnter={(e) => {
                 if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = color.surface2

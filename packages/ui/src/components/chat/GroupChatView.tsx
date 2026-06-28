@@ -31,6 +31,9 @@ export function GroupChatView({
   canCreateChannel = false,
   canSendMessage = true,
 }: GroupChatViewProps) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  )
   const [channels, setChannels] = useState<Channel[]>([])
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -137,9 +140,11 @@ export function GroupChatView({
         channels={channels}
         activeChannelId={activeChannelId}
         unreadCounts={unreadCounts}
-        onSelectChannel={handleSelectChannel}
+        onSelectChannel={(id) => { handleSelectChannel(id); if (window.innerWidth < 768) setSidebarCollapsed(true) }}
         onCreateChannel={() => setCreateOpen(true)}
         canCreateChannel={canCreateChannel}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((v) => !v)}
       />
 
       {/* Main chat area */}

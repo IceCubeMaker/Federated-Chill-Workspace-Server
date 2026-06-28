@@ -15,6 +15,19 @@ interface WorkspacePageProps {
   onRefreshGroups: () => void
 }
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < breakpoint
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`)
+    const handler = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [breakpoint])
+  return isMobile
+}
+
 function ConnectionInfo({ peerId, addresses, connected }: {
   peerId: string | null
   addresses: string[]
@@ -34,7 +47,7 @@ function ConnectionInfo({ peerId, addresses, connected }: {
   }
 
   return (
-    <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: space[2] }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
       <div>
         <Badge variant={connected ? 'success' : 'default'}>
           {connected ? '● Connected' : '○ Offline'}
@@ -46,7 +59,7 @@ function ConnectionInfo({ peerId, addresses, connected }: {
           <p style={{ fontSize: fontSize.xs, color: color.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: space[1] }}>
             Peer ID
           </p>
-          <Tooltip content={copied ? 'Copied!' : 'Click to copy full peer ID'}>
+          <Tooltip content={copied ? 'Copied!' : 'Click to copy'}>
             <button
               onClick={copyPeerId}
               style={{
@@ -127,11 +140,12 @@ function EmptyState({ onCreateGroup }: { onCreateGroup: () => void }) {
       justifyContent: 'center',
       gap: space[4],
       color: color.textMuted,
+      padding: space[6],
     }}>
-      <div style={{ fontSize: 48 }}>⬡</div>
+      <div style={{ fontSize: 48, lineHeight: 1 }}>⬡</div>
       <div style={{ textAlign: 'center' }}>
-        <p style={{ fontSize: fontSize.md, color: color.textSecondary, margin: 0 }}>No group selected</p>
-        <p style={{ fontSize: fontSize.sm, marginTop: space[1] }}>Create a group or join one to get started</p>
+        <p style={{ fontSize: fontSize.md, color: color.textSecondary, margin: 0, fontWeight: fontWeight.medium }}>No group selected</p>
+        <p style={{ fontSize: fontSize.sm, marginTop: space[1], marginBottom: 0 }}>Create a group or join one to get started</p>
       </div>
       <Button onClick={onCreateGroup}>+ Create group</Button>
     </div>
@@ -180,7 +194,6 @@ function GroupView({
   const [canSendMessage, setCanSendMessage] = useState(true)
   const members = useMembersMap(doc, currentUserId, identity)
 
-  // Check permissions for chat actions
   useEffect(() => {
     void workspace.permissions.canPerform(currentUserId, groupId, 'create_channel').then(setCanCreateChannel)
     void workspace.permissions.canPerform(currentUserId, groupId, 'send_message').then(setCanSendMessage)
@@ -237,7 +250,7 @@ function GroupView({
         background: color.surface1,
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: color.textPrimary, flex: 1 }}>
+        <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: color.textPrimary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {doc.metadata.name}
         </span>
         <Badge variant={doc.metadata.visibility === 'open' ? 'success' : doc.metadata.visibility === 'application' ? 'warning' : 'default'}>
@@ -253,9 +266,11 @@ function GroupView({
             cursor: 'pointer',
             padding: `${space[1]} ${space[3]}`,
             fontSize: fontSize.sm,
+            whiteSpace: 'nowrap',
+            outline: 'none',
           }}
         >
-          ⚙ Settings
+          Settings
         </button>
       </header>
 
@@ -286,6 +301,9 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
   const [newName, setNewName] = useState('')
   const [newVis, setNewVis] = useState<GroupDocument['metadata']['visibility']>('private')
   const [creating, setCreating] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+
+  const isMobile = useIsMobile()
 
   const handleCreate = async () => {
     if (!newName.trim()) return
@@ -299,6 +317,7 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
 
   const { workspace, identity, groups, activeGroupId } = state
   const currentUserId = identity?.getPeerId() ?? ''
+  const displayName = identity?.getProfile().displayName ?? 'Me'
   const activeGroup = groups.find((g) => g.id === activeGroupId)
 
   const getGroup = useCallback((id: DocumentId) => {
@@ -312,6 +331,8 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
         <GroupSwitcher
           groups={groups}
           onCreateGroup={() => setCreateOpen(true)}
+          currentUser={isMobile ? { name: displayName, isConnected: !!state.workspace } : undefined}
+          onProfileClick={isMobile ? () => setProfileOpen(true) : undefined}
         />
 
         {/* Main area */}
@@ -329,49 +350,54 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
           )}
         </div>
 
-        {/* Right sidebar — peer list (placeholder) */}
-        <aside style={{
-          width: 220,
-          borderLeft: `1px solid ${color.border}`,
-          background: color.surface1,
-          display: 'flex',
-          flexDirection: 'column',
-          padding: space[3],
-          gap: space[3],
-          flexShrink: 0,
-        }}>
-          <div>
-            <p style={{ fontSize: fontSize.xs, color: color.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: space[2] }}>
-              You
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
-              <Avatar name={identity?.getProfile().displayName ?? 'Me'} size={28} />
-              <span style={{ fontSize: fontSize.sm, color: color.textPrimary }}>
-                {identity?.getProfile().displayName ?? 'Me'}
-              </span>
-            </div>
-          </div>
-
-          {activeGroup && (
+        {/* Right sidebar — desktop only */}
+        {!isMobile && (
+          <aside style={{
+            width: 220,
+            borderLeft: `1px solid ${color.border}`,
+            background: color.surface1,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: space[3],
+            gap: space[3],
+            flexShrink: 0,
+            overflowY: 'auto',
+          }}>
             <div>
               <p style={{ fontSize: fontSize.xs, color: color.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: space[2] }}>
-                Members ({activeGroup.doc.members.length})
+                You
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
-                {activeGroup.doc.members.map((m) => (
-                  <div key={m} style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
-                    <Avatar name={m} size={24} />
-                    <span style={{ fontSize: fontSize.xs, color: color.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {m.slice(0, 14)}…
-                    </span>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
+                <Avatar name={displayName} size={28} />
+                <span style={{ fontSize: fontSize.sm, color: color.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {displayName}
+                </span>
               </div>
             </div>
-          )}
 
-          <ConnectionInfo peerId={state.peerId} addresses={state.listenAddresses} connected={!!state.workspace} />
-        </aside>
+            {activeGroup && (
+              <div>
+                <p style={{ fontSize: fontSize.xs, color: color.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: space[2] }}>
+                  Members ({activeGroup.doc.members.length})
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                  {activeGroup.doc.members.map((m) => (
+                    <div key={m} style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
+                      <Avatar name={m} size={24} />
+                      <span style={{ fontSize: fontSize.xs, color: color.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {m.slice(0, 14)}…
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: 'auto' }}>
+              <ConnectionInfo peerId={state.peerId} addresses={state.listenAddresses} connected={!!state.workspace} />
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* Create group modal */}
@@ -395,6 +421,36 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
               Create
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Mobile profile modal */}
+      <Modal open={profileOpen} onClose={() => setProfileOpen(false)} title="Profile">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: space[3] }}>
+            <Avatar name={displayName} size={40} />
+            <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: color.textPrimary }}>
+              {displayName}
+            </span>
+          </div>
+          <ConnectionInfo peerId={state.peerId} addresses={state.listenAddresses} connected={!!state.workspace} />
+          {activeGroup && (
+            <div>
+              <p style={{ fontSize: fontSize.xs, color: color.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: space[2] }}>
+                Members ({activeGroup.doc.members.length})
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: space[2] }}>
+                {activeGroup.doc.members.map((m) => (
+                  <div key={m} style={{ display: 'flex', alignItems: 'center', gap: space[2] }}>
+                    <Avatar name={m} size={24} />
+                    <span style={{ fontSize: fontSize.xs, color: color.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {m.slice(0, 14)}…
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
     </GroupContextProvider>
