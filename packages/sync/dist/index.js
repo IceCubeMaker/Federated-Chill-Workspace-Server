@@ -348,6 +348,11 @@ var WorkspaceFederation = class {
   getNode() {
     return this.node;
   }
+  /** Expose pubsub manager for group DM topics */
+  getPubSub() {
+    this.#assertInitialized();
+    return this.pubsub;
+  }
   #assertInitialized() {
     if (!this.initialized) throw new Error("WorkspaceFederation not initialized. Call initialize() first.");
   }

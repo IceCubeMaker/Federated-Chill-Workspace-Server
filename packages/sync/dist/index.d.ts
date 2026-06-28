@@ -85,6 +85,8 @@ declare class WorkspaceFederation {
     getRepo(): RepoManager;
     /** Expose the libp2p node (e.g. for multiaddr inspection in tests) */
     getNode(): Libp2p;
+    /** Expose pubsub manager for group DM topics */
+    getPubSub(): PubSubManager;
 }
 
 export { type FederationConfig, ReplicationStrategy, StateMachine, SyncEngine, VerificationService, WorkspaceFederation };
