@@ -16,6 +16,9 @@ on:
       - 'packages/ui/**'
       - '.github/workflows/build-android.yml'
 
+permissions:
+  contents: write           # needed to create/update GitHub Releases
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
@@ -61,21 +64,30 @@ jobs:
         working-directory: packages/app-web/android
         run: ./gradlew assembleDebug
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: federated-workspace-debug.apk
-          path: packages/app-web/android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-
-      # Optional: also build a release APK (unsigned, for sideloading)
-      - name: Build release APK (unsigned)
+      - name: Build release APK (unsigned, for sideloading)
         working-directory: packages/app-web/android
         run: ./gradlew assembleRelease
 
-      - name: Upload release APK artifact
-        uses: actions/upload-artifact@v4
+      - name: Rename APKs with commit SHA
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          cp packages/app-web/android/app/build/outputs/apk/debug/app-debug.apk \
+             federated-workspace-debug-${SHORT_SHA}.apk
+          cp packages/app-web/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+             federated-workspace-release-${SHORT_SHA}.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: federated-workspace-release-unsigned.apk
-          path: packages/app-web/android/app/build/outputs/apk/release/app-release-unsigned.apk
-          retention-days: 30
+          tag_name: latest
+          name: "Latest Build"
+          body: |
+            Automated build from commit ${{ github.sha }} on branch `${{ github.ref_name }}`.
+
+            **debug APK** — install directly for testing (allows USB debugging)
+            **release APK** — unsigned; enable "Install unknown apps" to sideload
+          prerelease: true
+          make_latest: true
+          files: |
+            federated-workspace-debug-*.apk
+            federated-workspace-release-*.apk
