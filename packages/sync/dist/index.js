@@ -367,6 +367,25 @@ var WorkspaceFederation = class {
     this.#assertInitialized();
     return this.node.peerId.toString();
   }
+  /** Number of currently connected peers. */
+  getPeerCount() {
+    this.#assertInitialized();
+    return this.node.getPeers().length;
+  }
+  /**
+   * Subscribe to peer connect/disconnect events.
+   * Returns an unsubscribe function.
+   */
+  onPeerCountChange(callback) {
+    this.#assertInitialized();
+    const emit = () => callback(this.node.getPeers().length);
+    this.node.addEventListener("peer:connect", emit);
+    this.node.addEventListener("peer:disconnect", emit);
+    return () => {
+      this.node.removeEventListener("peer:connect", emit);
+      this.node.removeEventListener("peer:disconnect", emit);
+    };
+  }
   #assertInitialized() {
     if (!this.initialized) throw new Error("WorkspaceFederation not initialized. Call initialize() first.");
   }

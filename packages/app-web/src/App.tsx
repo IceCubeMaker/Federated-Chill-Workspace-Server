@@ -1,31 +1,46 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { color } from '@federation/ui'
 import { useWorkspace } from './hooks/useWorkspace.js'
 import { SetupPage } from './pages/SetupPage.js'
+import { UnlockPage } from './pages/UnlockPage.js'
 import { LoadingPage } from './pages/LoadingPage.js'
 import { WorkspacePage } from './pages/WorkspacePage.js'
 
-const SETUP_DONE_KEY = 'fed-setup-done'
-
 export function App() {
-  const [setupDone, setSetupDone] = useState(() => !!localStorage.getItem(SETUP_DONE_KEY))
-  const { state, switchGroup, createGroup, refreshGroups, updateProfile } = useWorkspace()
+  const {
+    state,
+    switchGroup,
+    createGroup,
+    refreshGroups,
+    updateProfile,
+    completeSetup,
+    unlock,
+    importIdentity,
+    exportIdentity,
+  } = useWorkspace()
 
-  // Show setup screen on first launch
-  if (!setupDone) {
+  if (state.status === 'idle' || state.status === 'initializing') {
+    return <LoadingPage message="Starting peer-to-peer node…" />
+  }
+
+  if (state.status === 'needs_setup') {
     return (
       <SetupPage
-        onComplete={(displayName) => {
-          localStorage.setItem(SETUP_DONE_KEY, '1')
-          setSetupDone(true)
-          void updateProfile({ displayName })
-        }}
+        onComplete={completeSetup}
+        onImport={importIdentity}
+        error={state.error}
       />
     )
   }
 
-  if (state.status === 'initializing' || state.status === 'idle') {
-    return <LoadingPage message="Starting peer-to-peer node…" />
+  if (state.status === 'locked') {
+    return (
+      <UnlockPage
+        displayName={state.identity?.getProfile().displayName}
+        onUnlock={unlock}
+        error={state.error}
+      />
+    )
   }
 
   if (state.status === 'error') {
@@ -69,6 +84,8 @@ export function App() {
       onSwitchGroup={switchGroup}
       onCreateGroup={createGroup}
       onRefreshGroups={refreshGroups}
+      onUpdateProfile={updateProfile}
+      onExportIdentity={exportIdentity}
     />
   )
 }

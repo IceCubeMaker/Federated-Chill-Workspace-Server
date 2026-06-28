@@ -101,6 +101,13 @@ declare class WorkspaceFederation {
     getListenAddresses(): string[];
     /** Local peer ID string */
     getPeerId(): string;
+    /** Number of currently connected peers. */
+    getPeerCount(): number;
+    /**
+     * Subscribe to peer connect/disconnect events.
+     * Returns an unsubscribe function.
+     */
+    onPeerCountChange(callback: (count: number) => void): () => void;
 }
 
 export { type FederationConfig, ReplicationStrategy, StateMachine, SyncEngine, VerificationService, WorkspaceFederation };

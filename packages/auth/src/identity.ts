@@ -18,11 +18,19 @@ function fromHex(h: string): Uint8Array {
   return arr
 }
 
+interface EncryptedKey {
+  ciphertextHex: string
+  nonceHex: string
+  saltHex: string
+}
+
 interface StoredIdentity {
   peerId: PeerIdStr
   publicKeyHex: string
-  /** PHASE 1: stored in plaintext. Phase 2 will encrypt with browser-passworder. */
-  privateKeyHex: string
+  /** Present only when NOT password-protected. */
+  privateKeyHex?: string
+  /** Present only when password-protected (argon2id + secretbox). */
+  encrypted?: EncryptedKey
   profile: UserProfile
 }
 
@@ -59,6 +67,7 @@ async function storageWrite(key: string, value: string): Promise<void> {
 export class LocalIdentity {
   private stored!: StoredIdentity
   private readonly storageKey: string
+  private unlockedKey: Uint8Array | null = null
 
   /**
    * @param dataDir  On Node.js: filesystem directory path.
@@ -68,13 +77,112 @@ export class LocalIdentity {
     this.storageKey = _ls ? `${dataDir}:identity` : `${dataDir}/identity.json`
   }
 
-  async load(): Promise<void> {
+  /**
+   * Load or generate identity from storage.
+   * Returns true if a brand-new identity was generated (first launch).
+   */
+  async load(): Promise<boolean> {
     const raw = await storageRead(this.storageKey)
     if (raw) {
       this.stored = JSON.parse(raw) as StoredIdentity
+      if (this.stored.privateKeyHex) {
+        // Unprotected — unlock immediately
+        this.unlockedKey = fromHex(this.stored.privateKeyHex)
+      }
+      return false
     } else {
       await this.#generate()
+      return true
     }
+  }
+
+  /** True if the private key is encrypted with a password. */
+  isProtected(): boolean {
+    return !!this.stored?.encrypted && !this.stored.privateKeyHex
+  }
+
+  /** True if the private key is available in memory (unlocked or unprotected). */
+  isUnlocked(): boolean {
+    return this.unlockedKey !== null
+  }
+
+  /**
+   * Decrypt the private key using the given password.
+   * Throws 'Incorrect password' on failure.
+   */
+  async unlock(password: string): Promise<void> {
+    if (!this.stored.encrypted) throw new Error('Identity is not password-protected')
+    const s = await sodium()
+    const salt = fromHex(this.stored.encrypted.saltHex)
+    const nonce = fromHex(this.stored.encrypted.nonceHex)
+    const ciphertext = fromHex(this.stored.encrypted.ciphertextHex)
+
+    const key = s.crypto_pwhash(
+      s.crypto_secretbox_KEYBYTES,
+      password,
+      salt,
+      s.crypto_pwhash_OPSLIMIT_INTERACTIVE,
+      s.crypto_pwhash_MEMLIMIT_INTERACTIVE,
+      s.crypto_pwhash_ALG_DEFAULT,
+    )
+
+    try {
+      this.unlockedKey = s.crypto_secretbox_open_easy(ciphertext, nonce, key)
+    } catch {
+      throw new Error('Incorrect password')
+    }
+  }
+
+  /**
+   * Encrypt the private key with a password and persist.
+   * After this the raw privateKeyHex is removed from storage.
+   */
+  async protect(password: string): Promise<void> {
+    if (!this.unlockedKey) throw new Error('No private key in memory')
+    const s = await sodium()
+    const salt = s.randombytes_buf(s.crypto_pwhash_SALTBYTES)
+    const nonce = s.randombytes_buf(s.crypto_secretbox_NONCEBYTES)
+    const derivedKey = s.crypto_pwhash(
+      s.crypto_secretbox_KEYBYTES,
+      password,
+      salt,
+      s.crypto_pwhash_OPSLIMIT_INTERACTIVE,
+      s.crypto_pwhash_MEMLIMIT_INTERACTIVE,
+      s.crypto_pwhash_ALG_DEFAULT,
+    )
+    const ciphertext = s.crypto_secretbox_easy(this.unlockedKey, nonce, derivedKey)
+    this.stored.encrypted = {
+      ciphertextHex: toHex(ciphertext),
+      nonceHex: toHex(nonce),
+      saltHex: toHex(salt),
+    }
+    delete this.stored.privateKeyHex
+    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+  }
+
+  /**
+   * Export identity as a JSON string.
+   * Safe to share between your own devices — the private key stays encrypted
+   * if protect() was called. Treat this blob like a password-manager entry.
+   */
+  exportBlob(): string {
+    return JSON.stringify(this.stored)
+  }
+
+  /**
+   * Import an identity blob exported from another device.
+   * Replaces the current identity in storage and memory.
+   * If the imported identity is password-protected, call unlock() afterwards.
+   */
+  async importFromBlob(blob: string): Promise<void> {
+    const parsed = JSON.parse(blob) as StoredIdentity
+    this.stored = parsed
+    if (this.stored.privateKeyHex) {
+      this.unlockedKey = fromHex(this.stored.privateKeyHex)
+    } else {
+      this.unlockedKey = null
+    }
+    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
   }
 
   getProfile(): UserProfile {
@@ -95,19 +203,17 @@ export class LocalIdentity {
   }
 
   getPrivateKey(): Uint8Array {
-    return fromHex(this.stored.privateKeyHex)
+    return this.#requireKey()
   }
 
   async sign(data: Uint8Array): Promise<Uint8Array> {
     const s = await sodium()
-    const sk = fromHex(this.stored.privateKeyHex)
-    return s.crypto_sign_detached(data, sk)
+    return s.crypto_sign_detached(data, this.#requireKey())
   }
 
   async encryptForUser(recipientPublicKey: Uint8Array, plaintext: Uint8Array): Promise<Uint8Array> {
     const s = await sodium()
-    const senderSk = fromHex(this.stored.privateKeyHex)
-    const senderCurveSk = s.crypto_sign_ed25519_sk_to_curve25519(senderSk)
+    const senderCurveSk = s.crypto_sign_ed25519_sk_to_curve25519(this.#requireKey())
     const recipientCurvePk = s.crypto_sign_ed25519_pk_to_curve25519(recipientPublicKey)
     const nonce = s.randombytes_buf(s.crypto_box_NONCEBYTES)
     const ciphertext = s.crypto_box_easy(plaintext, nonce, recipientCurvePk, senderCurveSk)
@@ -119,8 +225,7 @@ export class LocalIdentity {
 
   async decryptFromUser(senderPublicKey: Uint8Array, payload: Uint8Array): Promise<Uint8Array> {
     const s = await sodium()
-    const mySk = fromHex(this.stored.privateKeyHex)
-    const myCurveSk = s.crypto_sign_ed25519_sk_to_curve25519(mySk)
+    const myCurveSk = s.crypto_sign_ed25519_sk_to_curve25519(this.#requireKey())
     const senderCurvePk = s.crypto_sign_ed25519_pk_to_curve25519(senderPublicKey)
     const nonce = payload.slice(0, s.crypto_box_NONCEBYTES)
     const ciphertext = payload.slice(s.crypto_box_NONCEBYTES)
@@ -129,8 +234,6 @@ export class LocalIdentity {
 
   async #generate(): Promise<void> {
     const s = await sodium()
-    console.warn('[LocalIdentity] Private key stored in plaintext. Encrypt in production.')
-
     const keypair = s.crypto_sign_keypair()
     const peerId = uuidv4() as PeerIdStr
 
@@ -146,6 +249,12 @@ export class LocalIdentity {
       },
     }
 
+    this.unlockedKey = keypair.privateKey
     await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+  }
+
+  #requireKey(): Uint8Array {
+    if (this.unlockedKey) return this.unlockedKey
+    throw new Error('Identity is locked. Call unlock(password) first.')
   }
 }

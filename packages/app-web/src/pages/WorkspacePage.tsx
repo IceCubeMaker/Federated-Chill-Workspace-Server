@@ -13,6 +13,8 @@ interface WorkspacePageProps {
   onSwitchGroup: (id: DocumentId | null) => void
   onCreateGroup: (name: string, vis: GroupDocument['metadata']['visibility']) => Promise<void>
   onRefreshGroups: () => void
+  onUpdateProfile: (patch: { displayName?: string }) => Promise<void>
+  onExportIdentity: () => string
 }
 
 function useIsMobile(breakpoint = 768) {
@@ -28,10 +30,10 @@ function useIsMobile(breakpoint = 768) {
   return isMobile
 }
 
-function ConnectionInfo({ peerId, addresses, connected }: {
+function ConnectionInfo({ peerId, addresses, peerCount }: {
   peerId: string | null
   addresses: string[]
-  connected: boolean
+  peerCount: number
 }) {
   const [copied, setCopied] = useState(false)
   const [showAddrs, setShowAddrs] = useState(false)
@@ -46,11 +48,15 @@ function ConnectionInfo({ peerId, addresses, connected }: {
     })
   }
 
+  const statusLabel = peerCount === 0
+    ? '○ Offline mode'
+    : `● ${peerCount} peer${peerCount === 1 ? '' : 's'} online`
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: space[3] }}>
       <div>
-        <Badge variant={connected ? 'success' : 'default'}>
-          {connected ? '● Connected' : '○ Offline'}
+        <Badge variant={peerCount > 0 ? 'success' : 'default'}>
+          {statusLabel}
         </Badge>
       </div>
 
@@ -296,7 +302,7 @@ function GroupView({
   )
 }
 
-export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGroups }: WorkspacePageProps) {
+export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGroups, onUpdateProfile, onExportIdentity }: WorkspacePageProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newVis, setNewVis] = useState<GroupDocument['metadata']['visibility']>('private')
@@ -398,8 +404,29 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
               </div>
             )}
 
-            <div style={{ marginTop: 'auto' }}>
-              <ConnectionInfo peerId={state.peerId} addresses={state.listenAddresses} connected={!!state.workspace} />
+            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: space[3] }}>
+              <ConnectionInfo peerId={state.peerId} addresses={state.listenAddresses} peerCount={state.peerCount} />
+              <button
+                onClick={() => {
+                  const blob = onExportIdentity()
+                  const a = document.createElement('a')
+                  a.href = `data:application/json,${encodeURIComponent(blob)}`
+                  a.download = 'federation-identity.json'
+                  a.click()
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: color.textMuted,
+                  cursor: 'pointer',
+                  fontSize: fontSize.xs,
+                  padding: 0,
+                  textDecoration: 'underline',
+                  textAlign: 'left',
+                }}
+              >
+                Export identity
+              </button>
             </div>
           </aside>
         )}
@@ -443,7 +470,20 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
               {displayName}
             </span>
           </div>
-          <ConnectionInfo peerId={state.peerId} addresses={state.listenAddresses} connected={!!state.workspace} />
+          <ConnectionInfo peerId={state.peerId} addresses={state.listenAddresses} peerCount={state.peerCount} />
+          <Button
+            variant="ghost"
+            onClick={() => {
+              const blob = onExportIdentity()
+              const a = document.createElement('a')
+              a.href = `data:application/json,${encodeURIComponent(blob)}`
+              a.download = 'federation-identity.json'
+              a.click()
+            }}
+            style={{ width: '100%', justifyContent: 'center' }}
+          >
+            Export identity (backup / new device)
+          </Button>
           {activeGroup && (
             <div>
               <p style={{ fontSize: fontSize.xs, color: color.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: space[2] }}>

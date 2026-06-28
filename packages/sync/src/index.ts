@@ -153,6 +153,27 @@ export class WorkspaceFederation {
     return this.node.peerId.toString()
   }
 
+  /** Number of currently connected peers. */
+  getPeerCount(): number {
+    this.#assertInitialized()
+    return this.node.getPeers().length
+  }
+
+  /**
+   * Subscribe to peer connect/disconnect events.
+   * Returns an unsubscribe function.
+   */
+  onPeerCountChange(callback: (count: number) => void): () => void {
+    this.#assertInitialized()
+    const emit = () => callback(this.node.getPeers().length)
+    this.node.addEventListener('peer:connect', emit)
+    this.node.addEventListener('peer:disconnect', emit)
+    return () => {
+      this.node.removeEventListener('peer:connect', emit)
+      this.node.removeEventListener('peer:disconnect', emit)
+    }
+  }
+
   #assertInitialized(): void {
     if (!this.initialized) throw new Error('WorkspaceFederation not initialized. Call initialize() first.')
   }

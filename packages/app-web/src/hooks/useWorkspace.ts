@@ -3,7 +3,7 @@ import type { DocumentId, GroupDocument } from '@federation/models'
 import { LocalIdentity } from '@federation/auth'
 import { FederatedWorkspace } from '@federation/app'
 
-export type WorkspaceStatus = 'idle' | 'initializing' | 'ready' | 'error'
+export type WorkspaceStatus = 'idle' | 'initializing' | 'needs_setup' | 'locked' | 'ready' | 'error'
 
 export interface WorkspaceState {
   status: WorkspaceStatus
@@ -15,12 +15,10 @@ export interface WorkspaceState {
   activeGroupId: DocumentId | null
   peerId: string | null
   listenAddresses: string[]
+  peerCount: number
 }
 
-const PENDING_NAME_KEY = 'fed-pending-display-name'
-
 function getBrowserDataDir(): string {
-  // In browser context the dataDir is a logical key for IndexedDB
   return 'federation-workspace'
 }
 
@@ -37,6 +35,7 @@ export function useWorkspace() {
     activeGroupId: null,
     peerId: null,
     listenAddresses: [],
+    peerCount: 0,
   })
 
   const refreshGroups = useCallback(() => {
@@ -52,46 +51,68 @@ export function useWorkspace() {
     setState((s) => ({ ...s, groups }))
   }, [])
 
+  // Initialize the libp2p node + Automerge repo after identity is unlocked
+  const initNode = useCallback(async (identity: LocalIdentity) => {
+    const ws = new FederatedWorkspace(identity)
+    await ws.initialize({
+      platform: 'browser',
+      bootstrapPeers: [],
+      nodeRole: 'client',
+    })
+    wsRef.current = ws
+
+    // Give relay reservation a moment to propagate
+    await new Promise((r) => setTimeout(r, 1500))
+
+    // Subscribe to peer count changes
+    const unsubPeers = ws.onPeerCountChange((count) => {
+      setState((s) => ({ ...s, peerCount: count }))
+    })
+
+    setState({
+      status: 'ready',
+      workspace: ws,
+      identity,
+      displayName: identity.getProfile().displayName,
+      groups: [],
+      activeGroupId: null,
+      peerId: ws.getPeerId(),
+      listenAddresses: ws.getListenAddresses(),
+      peerCount: ws.getPeerCount(),
+    })
+    refreshGroups()
+
+    // Cleanup on unmount (stored in ref so effect cleanup can reach it)
+    return unsubPeers
+  }, [refreshGroups])
+
   useEffect(() => {
     let cancelled = false
+    let unsubPeers: (() => void) | null = null
 
     async function init() {
       setState((s) => ({ ...s, status: 'initializing' }))
       try {
         const identity = new LocalIdentity(getBrowserDataDir())
-        await identity.load()
-        // Apply display name entered during first-run setup
-        const pendingName = localStorage.getItem(PENDING_NAME_KEY)
-        if (pendingName) {
-          await identity.updateProfile({ displayName: pendingName })
-          localStorage.removeItem(PENDING_NAME_KEY)
-        }
+        const isNew = await identity.load()
         identityRef.current = identity
 
-        const ws = new FederatedWorkspace(identity)
-        await ws.initialize({
-          platform: 'browser',
-          bootstrapPeers: [],
-          nodeRole: 'client', // Browser uses circuit relay for inbound reachability
-        })
-        wsRef.current = ws
+        if (cancelled) return
 
-        // Give the relay reservation a moment to propagate before reading addrs
-        await new Promise((r) => setTimeout(r, 1500))
-
-        if (!cancelled) {
-          setState({
-            status: 'ready',
-            workspace: ws,
-            identity,
-            displayName: identity.getProfile().displayName,
-            groups: [],
-            activeGroupId: null,
-            peerId: ws.getPeerId(),
-            listenAddresses: ws.getListenAddresses(),
-          })
-          refreshGroups()
+        if (isNew) {
+          // Brand-new user — show setup page
+          setState((s) => ({ ...s, status: 'needs_setup', identity }))
+          return
         }
+
+        if (identity.isProtected() && !identity.isUnlocked()) {
+          // Returning user with password — show unlock page
+          setState((s) => ({ ...s, status: 'locked', identity }))
+          return
+        }
+
+        // Unprotected returning user — go straight to workspace
+        unsubPeers = await initNode(identity)
       } catch (err) {
         if (!cancelled) {
           setState((s) => ({ ...s, status: 'error', error: String(err), peerId: null, listenAddresses: [] }))
@@ -100,8 +121,64 @@ export function useWorkspace() {
     }
 
     init()
-    return () => { cancelled = true }
-  }, [refreshGroups])
+    return () => {
+      cancelled = true
+      unsubPeers?.()
+    }
+  }, [initNode])
+
+  /** Called from SetupPage when user finishes first-run setup. */
+  const completeSetup = useCallback(async (displayName: string, password: string) => {
+    const identity = identityRef.current
+    if (!identity) return
+    setState((s) => ({ ...s, status: 'initializing' }))
+    try {
+      await identity.updateProfile({ displayName })
+      if (password) await identity.protect(password)
+      await initNode(identity)
+    } catch (err) {
+      setState((s) => ({ ...s, status: 'error', error: String(err) }))
+    }
+  }, [initNode])
+
+  /** Called from UnlockPage when user enters their password. */
+  const unlock = useCallback(async (password: string) => {
+    const identity = identityRef.current
+    if (!identity) return
+    setState((s) => ({ ...s, status: 'initializing' }))
+    try {
+      await identity.unlock(password)
+      await initNode(identity)
+    } catch (err) {
+      // Re-surface the 'locked' status with an error message so UnlockPage can show it
+      setState((s) => ({ ...s, status: 'locked', error: String(err) }))
+    }
+  }, [initNode])
+
+  /**
+   * Import an identity blob (from another device) and either go to the unlock
+   * screen (if protected) or straight to the workspace.
+   */
+  const importIdentity = useCallback(async (blob: string) => {
+    const identity = identityRef.current
+    if (!identity) return
+    setState((s) => ({ ...s, status: 'initializing' }))
+    try {
+      await identity.importFromBlob(blob)
+      if (identity.isProtected()) {
+        setState((s) => ({ ...s, status: 'locked', identity }))
+      } else {
+        await initNode(identity)
+      }
+    } catch (err) {
+      setState((s) => ({ ...s, status: 'needs_setup', error: String(err) }))
+    }
+  }, [initNode])
+
+  /** Export the current identity as a blob for transfer to another device. */
+  const exportIdentity = useCallback((): string => {
+    return identityRef.current?.exportBlob() ?? ''
+  }, [])
 
   const switchGroup = useCallback((id: DocumentId | null) => {
     wsRef.current?.switchGroup(id)
@@ -118,16 +195,22 @@ export function useWorkspace() {
 
   const updateProfile = useCallback(async (patch: { displayName?: string }) => {
     const identity = identityRef.current
-    if (identity) {
-      await identity.updateProfile(patch)
-      if (patch.displayName !== undefined) {
-        setState((s) => ({ ...s, displayName: patch.displayName! }))
-      }
-    } else if (patch.displayName) {
-      // Identity not loaded yet; save for init() to pick up
-      localStorage.setItem(PENDING_NAME_KEY, patch.displayName)
+    if (!identity) return
+    await identity.updateProfile(patch)
+    if (patch.displayName !== undefined) {
+      setState((s) => ({ ...s, displayName: patch.displayName! }))
     }
   }, [])
 
-  return { state, switchGroup, createGroup, refreshGroups, updateProfile }
+  return {
+    state,
+    switchGroup,
+    createGroup,
+    refreshGroups,
+    updateProfile,
+    completeSetup,
+    unlock,
+    importIdentity,
+    exportIdentity,
+  }
 }
