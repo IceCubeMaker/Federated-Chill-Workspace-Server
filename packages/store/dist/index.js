@@ -89,6 +89,13 @@ var RepoManager = class {
     this.keys.set(docId, key);
     return docId;
   }
+  /** Create a document using a caller-supplied key instead of a random one. */
+  async createDocumentWithKey(initialData, key) {
+    const handle = this.repo.create(initialData);
+    const docId = handle.url;
+    this.keys.set(docId, key);
+    return docId;
+  }
   getDocument(docId) {
     const handle = this.repo.find(toAutomergeUrl(docId));
     return handle.docSync();

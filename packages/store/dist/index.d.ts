@@ -20,6 +20,8 @@ declare class RepoManager {
     private readonly keys;
     constructor(storageAdapter: StorageAdapter, _platform: string);
     createDocument<T>(initialData: T): Promise<DocumentId>;
+    /** Create a document using a caller-supplied key instead of a random one. */
+    createDocumentWithKey<T>(initialData: T, key: Uint8Array): Promise<DocumentId>;
     getDocument<T>(docId: DocumentId): Doc<T>;
     getHandle<T>(docId: DocumentId): DocHandle<T>;
     updateDocument<T>(docId: DocumentId, callback: (doc: T) => void): Promise<void>;

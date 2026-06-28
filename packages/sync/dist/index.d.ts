@@ -76,6 +76,7 @@ declare class WorkspaceFederation {
     private initialized;
     initialize(config: FederationConfig): Promise<void>;
     createDocument<T>(initialData: T): Promise<DocumentId>;
+    createDocumentWithKey<T>(initialData: T, key: Uint8Array): Promise<DocumentId>;
     getDocument<T>(docId: DocumentId): T;
     updateDocument<T>(docId: DocumentId, updater: (doc: T) => void): Promise<void>;
     startSync(): Promise<void>;

@@ -305,6 +305,12 @@ var WorkspaceFederation = class {
     this.stateMachine.queueSync(docId);
     return docId;
   }
+  async createDocumentWithKey(initialData, key) {
+    this.#assertInitialized();
+    const docId = await this.repo.createDocumentWithKey(initialData, key);
+    this.stateMachine.queueSync(docId);
+    return docId;
+  }
   getDocument(docId) {
     this.#assertInitialized();
     return this.repo.getDocument(docId);
