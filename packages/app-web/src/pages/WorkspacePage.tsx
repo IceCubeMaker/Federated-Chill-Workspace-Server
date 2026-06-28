@@ -14,7 +14,6 @@ interface WorkspacePageProps {
   onCreateGroup: (name: string, vis: GroupDocument['metadata']['visibility']) => Promise<void>
   onRefreshGroups: () => void
   onUpdateProfile: (patch: { displayName?: string }) => Promise<void>
-  onExportIdentity: () => string
 }
 
 function useIsMobile(breakpoint = 768) {
@@ -132,6 +131,48 @@ function ConnectionInfo({ peerId, addresses, peerCount }: {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function ConnectionCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+  const short = code.slice(0, 24) + '…'
+
+  const copy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: fontSize.xs, color: color.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: space[1] }}>
+        Connection code
+      </p>
+      <Tooltip content={copied ? 'Copied!' : 'Copy — paste on another device to connect'}>
+        <button
+          onClick={copy}
+          style={{
+            background: color.surface2,
+            border: `1px solid ${color.border}`,
+            borderRadius: radius.sm,
+            color: color.textSecondary,
+            cursor: 'pointer',
+            fontSize: fontSize.xs,
+            fontFamily: 'monospace',
+            padding: `${space[1]} ${space[2]}`,
+            width: '100%',
+            textAlign: 'left',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {short}
+        </button>
+      </Tooltip>
     </div>
   )
 }
@@ -302,7 +343,7 @@ function GroupView({
   )
 }
 
-export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGroups, onUpdateProfile, onExportIdentity }: WorkspacePageProps) {
+export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGroups, onUpdateProfile }: WorkspacePageProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newVis, setNewVis] = useState<GroupDocument['metadata']['visibility']>('private')
@@ -406,27 +447,9 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
 
             <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: space[3] }}>
               <ConnectionInfo peerId={state.peerId} addresses={state.listenAddresses} peerCount={state.peerCount} />
-              <button
-                onClick={() => {
-                  const blob = onExportIdentity()
-                  const a = document.createElement('a')
-                  a.href = `data:application/json,${encodeURIComponent(blob)}`
-                  a.download = 'federation-identity.json'
-                  a.click()
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: color.textMuted,
-                  cursor: 'pointer',
-                  fontSize: fontSize.xs,
-                  padding: 0,
-                  textDecoration: 'underline',
-                  textAlign: 'left',
-                }}
-              >
-                Export identity
-              </button>
+              {state.connectionCode && (
+                <ConnectionCode code={state.connectionCode} />
+              )}
             </div>
           </aside>
         )}
@@ -471,19 +494,9 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
             </span>
           </div>
           <ConnectionInfo peerId={state.peerId} addresses={state.listenAddresses} peerCount={state.peerCount} />
-          <Button
-            variant="ghost"
-            onClick={() => {
-              const blob = onExportIdentity()
-              const a = document.createElement('a')
-              a.href = `data:application/json,${encodeURIComponent(blob)}`
-              a.download = 'federation-identity.json'
-              a.click()
-            }}
-            style={{ width: '100%', justifyContent: 'center' }}
-          >
-            Export identity (backup / new device)
-          </Button>
+          {state.connectionCode && (
+            <ConnectionCode code={state.connectionCode} />
+          )}
           {activeGroup && (
             <div>
               <p style={{ fontSize: fontSize.xs, color: color.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: space[2] }}>

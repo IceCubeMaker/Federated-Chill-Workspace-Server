@@ -16,7 +16,6 @@ export function App() {
     completeSetup,
     unlock,
     importIdentity,
-    exportIdentity,
   } = useWorkspace()
 
   if (state.status === 'idle' || state.status === 'initializing') {
@@ -85,7 +84,6 @@ export function App() {
       onCreateGroup={createGroup}
       onRefreshGroups={refreshGroups}
       onUpdateProfile={updateProfile}
-      onExportIdentity={exportIdentity}
     />
   )
 }

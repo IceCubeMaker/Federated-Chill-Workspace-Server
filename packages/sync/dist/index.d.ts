@@ -1,3 +1,4 @@
+import * as _automerge_automerge_repo from '@automerge/automerge-repo';
 import { PeerId, Libp2p } from '@libp2p/interface';
 import { DocumentId, PeerIdStr, CheckpointMessage, SyncState } from '@federation/types';
 import { RepoManager, Platform } from '@federation/store';
@@ -77,6 +78,8 @@ declare class WorkspaceFederation {
     initialize(config: FederationConfig): Promise<void>;
     createDocument<T>(initialData: T): Promise<DocumentId>;
     createDocumentWithKey<T>(initialData: T, key: Uint8Array): Promise<DocumentId>;
+    createPublicDocument<T>(initialData: T): Promise<DocumentId>;
+    getPublicHandle<T>(docId: DocumentId): _automerge_automerge_repo.DocHandle<T>;
     getDocument<T>(docId: DocumentId): T;
     updateDocument<T>(docId: DocumentId, updater: (doc: T) => void): Promise<void>;
     startSync(): Promise<void>;

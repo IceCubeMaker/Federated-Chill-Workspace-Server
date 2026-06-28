@@ -33,6 +33,8 @@ interface StoredIdentity {
   encrypted?: EncryptedKey
   /** Automerge document ID of the personal root document (group registry). */
   rootDocId?: string
+  /** Automerge document ID of the public identity document (connection code). */
+  identityDocId?: string
   profile: UserProfile
 }
 
@@ -189,6 +191,20 @@ export class LocalIdentity {
 
   getRootDocId(): string | null {
     return this.stored.rootDocId ?? null
+  }
+
+  getIdentityDocId(): string | null {
+    return this.stored.identityDocId ?? null
+  }
+
+  async setIdentityDocId(id: string): Promise<void> {
+    this.stored.identityDocId = id
+    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+  }
+
+  /** Returns the password-encrypted private key fields, or null if unprotected. */
+  getEncryptedFields(): { ciphertextHex: string; nonceHex: string; saltHex: string } | null {
+    return this.stored.encrypted ?? null
   }
 
   async setRootDocId(id: string): Promise<void> {

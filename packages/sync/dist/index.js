@@ -311,6 +311,16 @@ var WorkspaceFederation = class {
     this.stateMachine.queueSync(docId);
     return docId;
   }
+  async createPublicDocument(initialData) {
+    this.#assertInitialized();
+    const docId = await this.repo.createPublicDocument(initialData);
+    this.stateMachine.queueSync(docId);
+    return docId;
+  }
+  getPublicHandle(docId) {
+    this.#assertInitialized();
+    return this.repo.getPublicHandle(docId);
+  }
   getDocument(docId) {
     this.#assertInitialized();
     return this.repo.getDocument(docId);

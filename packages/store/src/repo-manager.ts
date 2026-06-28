@@ -43,6 +43,21 @@ export class RepoManager {
     return docId
   }
 
+  /**
+   * Create a document without an encryption key — any peer can replicate it.
+   * Use only for data that is already protected at the application layer
+   * (e.g. an identity document whose private key is password-encrypted).
+   */
+  async createPublicDocument<T>(initialData: T): Promise<DocumentId> {
+    const handle = this.repo.create<T>(initialData)
+    return handle.url as unknown as DocumentId
+  }
+
+  /** Get a handle for a public (unencrypted) document. */
+  getPublicHandle<T>(docId: DocumentId): DocHandle<T> {
+    return this.repo.find<T>(toAutomergeUrl(docId))
+  }
+
   getDocument<T>(docId: DocumentId): Doc<T> {
     const handle = this.repo.find<T>(toAutomergeUrl(docId))
     return handle.docSync() as Doc<T>

@@ -154,6 +154,27 @@ export interface ReadState {
   readAt: number
 }
 
+// ─── Identity Document ────────────────────────────────────────────────────────
+
+/**
+ * Public Automerge document — NOT encrypted at the Automerge layer so any
+ * peer can store and relay it, but the private key inside is still encrypted
+ * with the user's password (argon2id + secretbox).
+ *
+ * Connection code = this document's ID.
+ * New device: fetch doc ID → enter password → decrypt private key → done.
+ */
+export interface IdentityDocument {
+  publicKeyHex: string
+  profile: UserProfile
+  /** The argon2id+secretbox encrypted private key. */
+  encryptedCiphertextHex: string
+  encryptedNonceHex: string
+  encryptedSaltHex: string
+  /** ID of the root document (group registry), set after root doc is created. */
+  rootDocId: string
+}
+
 // ─── Root Document ────────────────────────────────────────────────────────────
 
 /**

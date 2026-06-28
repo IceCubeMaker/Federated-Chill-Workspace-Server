@@ -85,6 +85,18 @@ export class WorkspaceFederation {
     return docId
   }
 
+  async createPublicDocument<T>(initialData: T): Promise<DocumentId> {
+    this.#assertInitialized()
+    const docId = await this.repo.createPublicDocument(initialData)
+    this.stateMachine.queueSync(docId)
+    return docId
+  }
+
+  getPublicHandle<T>(docId: DocumentId) {
+    this.#assertInitialized()
+    return this.repo.getPublicHandle<T>(docId)
+  }
+
   getDocument<T>(docId: DocumentId): T {
     this.#assertInitialized()
     return this.repo.getDocument<T>(docId) as T

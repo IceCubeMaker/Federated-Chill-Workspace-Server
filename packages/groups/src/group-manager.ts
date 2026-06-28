@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { DocumentId, GroupDocument, GroupMetadata, PeerIdStr, Action, PermissionRule, Role, RoleId, RootDocument } from '@federation/models'
+import type { DocumentId, GroupDocument, GroupMetadata, PeerIdStr, Action, PermissionRule, Role, RoleId, RootDocument, IdentityDocument } from '@federation/models'
 import type { LocalIdentity } from '@federation/auth'
 import type { WorkspaceFederation } from '@federation/sync'
 import { GroupCrypto } from './group-crypto.js'
@@ -90,6 +90,8 @@ export class GroupManager {
       this.rootDocId = rootDocId
       await this.identity.setRootDocId(rootDocId)
     }
+
+    await this.#initIdentityDoc()
   }
 
   async createGroup(
@@ -335,6 +337,42 @@ export class GroupManager {
         existing[groupId] = keyArr
         ls.setItem(LS_GROUP_REGISTRY_KEY, JSON.stringify(existing))
       } catch { /* ignore */ }
+    }
+  }
+
+  /**
+   * Create or load the public identity document.
+   * This document is replicated to all connected peers so the encrypted
+   * private key survives even if this device is wiped — any peer who synced
+   * with us holds a copy.
+   */
+  async #initIdentityDoc(): Promise<void> {
+    const enc = this.identity.getEncryptedFields()
+    if (!enc) return // identity not yet protected with a password
+
+    const existingId = this.identity.getIdentityDocId()
+
+    if (!existingId) {
+      const identityDoc: IdentityDocument = {
+        publicKeyHex: Array.from(this.identity.getPublicKey()).map((b) => b.toString(16).padStart(2, '0')).join(''),
+        profile: this.identity.getProfile(),
+        encryptedCiphertextHex: enc.ciphertextHex,
+        encryptedNonceHex: enc.nonceHex,
+        encryptedSaltHex: enc.saltHex,
+        rootDocId: this.rootDocId ?? '',
+      }
+      const docId = await this.federation.createPublicDocument<IdentityDocument>(identityDoc)
+      await this.identity.setIdentityDocId(docId)
+    } else {
+      // Ensure the identity doc is tracked for P2P sync and update rootDocId if needed
+      const handle = this.federation.getPublicHandle<IdentityDocument>(existingId as DocumentId)
+      handle.doc().catch(() => {})
+      if (this.rootDocId) {
+        const current = handle.docSync()
+        if (current && current.rootDocId !== this.rootDocId) {
+          handle.change((d: IdentityDocument) => { d.rootDocId = this.rootDocId! })
+        }
+      }
     }
   }
 

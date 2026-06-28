@@ -16,6 +16,8 @@ export interface WorkspaceState {
   peerId: string | null
   listenAddresses: string[]
   peerCount: number
+  /** Identity document ID — the "connection code" for logging in on another device. */
+  connectionCode: string | null
 }
 
 function getBrowserDataDir(): string {
@@ -36,6 +38,7 @@ export function useWorkspace() {
     peerId: null,
     listenAddresses: [],
     peerCount: 0,
+    connectionCode: null,
   })
 
   const refreshGroups = useCallback(() => {
@@ -79,6 +82,7 @@ export function useWorkspace() {
       peerId: ws.getPeerId(),
       listenAddresses: ws.getListenAddresses(),
       peerCount: ws.getPeerCount(),
+      connectionCode: identity.getIdentityDocId(),
     })
     refreshGroups()
 
