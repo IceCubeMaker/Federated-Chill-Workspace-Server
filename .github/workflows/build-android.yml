@@ -2,13 +2,17 @@ name: Build Android APK
 
 on:
   workflow_dispatch:        # manual trigger — click "Run workflow" on GitHub
-  push:
-    branches: [main, master]
+  push:                     # auto-build on every push to any branch
     paths:
       - 'packages/app-web/**'
       - 'packages/app/**'
       - 'packages/auth/**'
+      - 'packages/groups/**'
+      - 'packages/permissions/**'
       - 'packages/models/**'
+      - 'packages/network/**'
+      - 'packages/store/**'
+      - 'packages/sync/**'
       - 'packages/ui/**'
       - '.github/workflows/build-android.yml'
 

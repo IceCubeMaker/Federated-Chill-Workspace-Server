@@ -4,7 +4,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 import wasm from 'vite-plugin-wasm'
 import topLevelAwait from 'vite-plugin-top-level-await'
 
+// VITE_BASE is set by CI when deploying to a subdirectory (e.g. GitHub Pages)
+const base = process.env.VITE_BASE ?? '/'
+
 export default defineConfig({
+  base,
   plugins: [
     wasm(),
     topLevelAwait(),

@@ -1,0 +1,9 @@
+{
+  "buildCommand": "pnpm --filter '@federation/*' --filter '!@federation/app-web' --filter '!@federation/app-desktop' build && pnpm --filter @federation/app-web build",
+  "outputDirectory": "packages/app-web/dist",
+  "installCommand": "pnpm install",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

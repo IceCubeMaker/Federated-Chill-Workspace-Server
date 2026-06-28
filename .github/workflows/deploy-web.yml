@@ -1,0 +1,72 @@
+name: Deploy Web App
+
+on:
+  push:                     # auto-deploy on every push
+    paths:
+      - 'packages/app-web/**'
+      - 'packages/app/**'
+      - 'packages/auth/**'
+      - 'packages/groups/**'
+      - 'packages/permissions/**'
+      - 'packages/models/**'
+      - 'packages/network/**'
+      - 'packages/store/**'
+      - 'packages/sync/**'
+      - 'packages/ui/**'
+      - 'vercel.json'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:        # also triggerable manually
+
+# Needed for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build library packages
+        run: pnpm --filter '@federation/*' --filter '!@federation/app-web' --filter '!@federation/app-desktop' build
+
+      - name: Build web app
+        run: pnpm --filter @federation/app-web build
+        env:
+          # GitHub Pages serves from a repo subpath; set the base so assets resolve
+          VITE_BASE: /federated-chill-workspace-server/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/app-web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
