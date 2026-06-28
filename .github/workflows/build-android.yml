@@ -54,7 +54,7 @@ jobs:
 
       - name: Sync Capacitor (copy built web assets into Android project)
         working-directory: packages/app-web
-        run: ./node_modules/.bin/cap sync android --no-build
+        run: ./node_modules/.bin/cap sync android
 
       - name: Make Gradlew executable
         working-directory: packages/app-web/android
