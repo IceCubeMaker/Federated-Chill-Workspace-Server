@@ -54,7 +54,7 @@ export class GroupManager {
 
     const groupDoc: GroupDocument = {
       id: '' as DocumentId, // filled in after creation
-      metadata: { name, description: undefined, visibility, avatarUrl: undefined, isPubliclyViewable },
+      metadata: { name, visibility, isPubliclyViewable },
       createdAt: Date.now(),
       createdBy: creatorId,
       members: [creatorId],
