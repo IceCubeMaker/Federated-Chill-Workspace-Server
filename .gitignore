@@ -5,3 +5,13 @@ dist/
 *.tsbuildinfo
 .pnpmfile.cjs
 pnpm-lock.yaml
+
+# Android build outputs (keep project files, ignore generated build artifacts)
+packages/app-web/android/build/
+packages/app-web/android/app/build/
+packages/app-web/android/.gradle/
+packages/app-web/android/local.properties
+# Keep gradlew and gradle wrapper — needed for CI
+!packages/app-web/android/gradlew
+!packages/app-web/android/gradlew.bat
+!packages/app-web/android/gradle/

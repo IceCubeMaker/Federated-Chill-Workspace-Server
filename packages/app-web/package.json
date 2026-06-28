@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "@federation/app": "workspace:*",
     "@federation/auth": "workspace:*",
     "@federation/groups": "workspace:*",
@@ -19,6 +21,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
     "@rollup/plugin-wasm": "^6.2.2",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
