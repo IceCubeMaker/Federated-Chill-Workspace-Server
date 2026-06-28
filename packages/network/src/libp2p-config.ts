@@ -6,6 +6,7 @@ import { yamux } from '@chainsafe/libp2p-yamux'
 import { kadDHT } from '@libp2p/kad-dht'
 import { gossipsub } from '@chainsafe/libp2p-gossipsub'
 import { bootstrap } from '@libp2p/bootstrap'
+import { identify } from '@libp2p/identify'
 
 // Public IPFS bootstrap nodes — run the same kad-dht protocol we use.
 // Joining their DHT gives us a global routing table for free.
@@ -100,6 +101,7 @@ export async function createLibp2pNode(options: LibP2PNodeOptions = {}): Promise
     streamMuxers: [yamux()],
     peerDiscovery,
     services: {
+      identify: identify(),
       // Server nodes route for others + store DHT values (clientMode: false).
       // Client nodes only query the DHT, reducing load on browser tabs.
       dht: kadDHT({
