@@ -8,11 +8,12 @@ import { useGroupContext } from './GroupContext.js'
 export interface GroupSwitcherProps {
   groups: Array<{ id: DocumentId; doc: GroupDocument }>
   onCreateGroup?: () => void
+  onSwitchGroup?: (id: DocumentId) => void
   currentUser?: { name: string; isConnected: boolean }
   onProfileClick?: () => void
 }
 
-export function GroupSwitcher({ groups, onCreateGroup, currentUser, onProfileClick }: GroupSwitcherProps) {
+export function GroupSwitcher({ groups, onCreateGroup, onSwitchGroup, currentUser, onProfileClick }: GroupSwitcherProps) {
   const { activeGroupId, setActiveGroupId } = useGroupContext()
 
   return (
@@ -44,7 +45,7 @@ export function GroupSwitcher({ groups, onCreateGroup, currentUser, onProfileCli
           return (
             <Tooltip key={id} content={doc.metadata.name} placement="bottom">
               <button
-                onClick={() => setActiveGroupId(id)}
+                onClick={() => { setActiveGroupId(id); onSwitchGroup?.(id) }}
                 style={{
                   background: isActive ? color.brandPrimary : color.surface2,
                   border: `2px solid ${isActive ? color.brandPrimary : 'transparent'}`,

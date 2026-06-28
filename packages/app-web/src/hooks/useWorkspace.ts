@@ -10,6 +10,7 @@ export interface WorkspaceState {
   error?: string
   workspace: FederatedWorkspace | null
   identity: LocalIdentity | null
+  displayName: string
   groups: Array<{ id: DocumentId; doc: GroupDocument }>
   activeGroupId: DocumentId | null
   peerId: string | null
@@ -31,6 +32,7 @@ export function useWorkspace() {
     status: 'idle',
     workspace: null,
     identity: null,
+    displayName: 'Me',
     groups: [],
     activeGroupId: null,
     peerId: null,
@@ -82,6 +84,7 @@ export function useWorkspace() {
             status: 'ready',
             workspace: ws,
             identity,
+            displayName: identity.getProfile().displayName,
             groups: [],
             activeGroupId: null,
             peerId: ws.getPeerId(),
@@ -113,5 +116,18 @@ export function useWorkspace() {
     switchGroup(id)
   }, [refreshGroups, switchGroup])
 
-  return { state, switchGroup, createGroup, refreshGroups }
+  const updateProfile = useCallback(async (patch: { displayName?: string }) => {
+    const identity = identityRef.current
+    if (identity) {
+      await identity.updateProfile(patch)
+      if (patch.displayName !== undefined) {
+        setState((s) => ({ ...s, displayName: patch.displayName! }))
+      }
+    } else if (patch.displayName) {
+      // Identity not loaded yet; save for init() to pick up
+      localStorage.setItem(PENDING_NAME_KEY, patch.displayName)
+    }
+  }, [])
+
+  return { state, switchGroup, createGroup, refreshGroups, updateProfile }
 }

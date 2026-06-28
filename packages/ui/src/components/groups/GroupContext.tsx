@@ -26,6 +26,14 @@ export function GroupContextProvider({ children, getGroup, initialGroupId }: Gro
   const [activeGroupId, setActiveGroupId] = useState<DocumentId | null>(initialGroupId ?? null)
   const [groupDoc, setGroupDoc] = useState<GroupDocument | null>(null)
 
+  // Keep context in sync when the parent switches the active group
+  useEffect(() => {
+    if (initialGroupId !== undefined && initialGroupId !== activeGroupId) {
+      setActiveGroupId(initialGroupId)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialGroupId])
+
   const refresh = useCallback(() => {
     if (!activeGroupId) { setGroupDoc(null); return }
     try { setGroupDoc(getGroup(activeGroupId)) } catch { setGroupDoc(null) }

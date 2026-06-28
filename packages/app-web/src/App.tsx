@@ -9,16 +9,16 @@ const SETUP_DONE_KEY = 'fed-setup-done'
 
 export function App() {
   const [setupDone, setSetupDone] = useState(() => !!localStorage.getItem(SETUP_DONE_KEY))
-  const { state, switchGroup, createGroup, refreshGroups } = useWorkspace()
+  const { state, switchGroup, createGroup, refreshGroups, updateProfile } = useWorkspace()
 
   // Show setup screen on first launch
   if (!setupDone) {
     return (
       <SetupPage
         onComplete={(displayName) => {
-          localStorage.setItem('fed-pending-display-name', displayName)
           localStorage.setItem(SETUP_DONE_KEY, '1')
           setSetupDone(true)
+          void updateProfile({ displayName })
         }}
       />
     )

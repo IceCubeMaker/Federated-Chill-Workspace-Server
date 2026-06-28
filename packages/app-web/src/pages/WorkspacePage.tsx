@@ -301,6 +301,7 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
   const [newName, setNewName] = useState('')
   const [newVis, setNewVis] = useState<GroupDocument['metadata']['visibility']>('private')
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
 
   const isMobile = useIsMobile()
@@ -308,16 +309,19 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
   const handleCreate = async () => {
     if (!newName.trim()) return
     setCreating(true)
+    setCreateError(null)
     try {
       await onCreateGroup(newName.trim(), newVis)
       setCreateOpen(false)
       setNewName('')
+    } catch (err) {
+      console.error('[WorkspacePage] createGroup failed:', err)
+      setCreateError(err instanceof Error ? err.message : String(err))
     } finally { setCreating(false) }
   }
 
-  const { workspace, identity, groups, activeGroupId } = state
+  const { workspace, identity, groups, activeGroupId, displayName } = state
   const currentUserId = identity?.getPeerId() ?? ''
-  const displayName = identity?.getProfile().displayName ?? 'Me'
   const activeGroup = groups.find((g) => g.id === activeGroupId)
 
   const getGroup = useCallback((id: DocumentId) => {
@@ -331,6 +335,7 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
         <GroupSwitcher
           groups={groups}
           onCreateGroup={() => setCreateOpen(true)}
+          onSwitchGroup={onSwitchGroup}
           currentUser={isMobile ? { name: displayName, isConnected: !!state.workspace } : undefined}
           onProfileClick={isMobile ? () => setProfileOpen(true) : undefined}
         />
@@ -401,10 +406,10 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
       </div>
 
       {/* Create group modal */}
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create a group">
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); setCreateError(null) }} title="Create a group">
         <div style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
           <Input label="Group name" value={newName} onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }} />
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleCreate() }} />
           <Select
             label="Visibility"
             value={newVis}
@@ -415,9 +420,14 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
               { value: 'application', label: 'Application — admin approves' },
             ]}
           />
+          {createError && (
+            <p style={{ margin: 0, fontSize: fontSize.sm, color: color.error }}>
+              Error: {createError}
+            </p>
+          )}
           <div style={{ display: 'flex', gap: space[3], justifyContent: 'flex-end' }}>
-            <Button variant="ghost" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} loading={creating} disabled={!newName.trim()}>
+            <Button variant="ghost" onClick={() => { setCreateOpen(false); setCreateError(null) }}>Cancel</Button>
+            <Button onClick={() => void handleCreate()} loading={creating} disabled={!newName.trim()}>
               Create
             </Button>
           </div>
