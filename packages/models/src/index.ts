@@ -6,6 +6,7 @@ export type { DocumentId, PeerIdStr } from '@federation/types'
 // ─── Identifiers ─────────────────────────────────────────────────────────────
 export type RoleId = string
 export type InviteToken = string
+export type ChannelId = string
 
 // ─── System Actions ──────────────────────────────────────────────────────────
 export type SystemAction =
@@ -22,6 +23,12 @@ export type SystemAction =
   | 'change_permission'
   | 'edit_group_metadata'
   | 'delete_group'
+  | 'create_channel'
+  | 'delete_channel'
+  | 'edit_channel'
+  | 'send_message'
+  | 'delete_message'
+  | 'manage_messages'
 
 /** System actions plus any arbitrary custom action string. */
 export type Action = SystemAction | string
@@ -101,6 +108,50 @@ export interface GroupDocument {
    * so admins can sync them; actual content is in the sub-document.
    */
   privateDataRef?: DocumentId
+
+  /** Chat channels in this group, keyed by channelId. */
+  channels: Record<ChannelId, Channel>
+
+  /** Maps channelId → DocumentId of the ChannelMessages Automerge doc. */
+  channelMessageDocIds: Record<ChannelId, DocumentId>
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+export interface Channel {
+  id: ChannelId
+  name: string
+  description?: string
+  /** Lower position = displayed higher in the list. */
+  position: number
+  createdAt: number
+  createdBy: PeerIdStr
+  /** Cannot be deleted; always exists in the group. */
+  isDefault: boolean
+}
+
+export interface ChatMessage {
+  id: string
+  authorId: PeerIdStr
+  content: string
+  timestamp: number
+  /** PeerIds of explicitly @-mentioned users. */
+  mentions: PeerIdStr[]
+  replyTo?: string
+  editedAt?: number
+  deleted?: boolean
+}
+
+/** One Automerge document per channel, holds all messages as a CRDT list. */
+export interface ChannelMessages {
+  messages: ChatMessage[]
+  lastMessageTimestamp: number
+}
+
+export interface ReadState {
+  channelId: ChannelId
+  lastReadMessageId: string
+  readAt: number
 }
 
 // ─── User Profile ─────────────────────────────────────────────────────────────

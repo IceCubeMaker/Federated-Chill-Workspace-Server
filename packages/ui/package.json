@@ -15,17 +15,21 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --external react",
+    "build": "tsup src/index.ts --format esm --dts --external react --external @federation/chat",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@federation/models": "workspace:*"
+    "@federation/models": "workspace:*",
+    "dompurify": "^3.4.11",
+    "marked": "^18.0.5"
   },
   "peerDependencies": {
     "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react-dom": "^18.0.0",
+    "@federation/chat": "workspace:*"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.2.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "react": "^18.3.1",

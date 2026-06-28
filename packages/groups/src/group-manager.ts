@@ -42,6 +42,16 @@ export class GroupManager {
 
     const permissions = getDefaultPermissions(creatorId)
 
+    const defaultChannel = {
+      id: 'general',
+      name: 'General',
+      description: 'General discussion',
+      position: 0,
+      createdAt: Date.now(),
+      createdBy: creatorId,
+      isDefault: true,
+    }
+
     const groupDoc: GroupDocument = {
       id: '' as DocumentId, // filled in after creation
       metadata: { name, description: undefined, visibility, avatarUrl: undefined, isPubliclyViewable },
@@ -53,6 +63,8 @@ export class GroupManager {
       roles: { [ADMIN_ROLE_ID]: adminRole, [MEMBER_ROLE_ID]: memberRole },
       permissions,
       defaultRoleId: MEMBER_ROLE_ID,
+      channels: { general: defaultChannel },
+      channelMessageDocIds: {},
     }
 
     const docId = await this.federation.createDocument<GroupDocument>(groupDoc)

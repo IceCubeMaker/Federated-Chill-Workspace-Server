@@ -4,12 +4,14 @@ import type { FederationConfig } from '@federation/sync'
 import { LocalIdentity } from '@federation/auth'
 import { GroupManager } from '@federation/groups'
 import { PermissionEngine } from '@federation/permissions'
+import { ChatManager } from '@federation/chat'
 
 export type { FederationConfig } from '@federation/sync'
 export type { DocumentId } from '@federation/models'
 export { LocalIdentity } from '@federation/auth'
 export { GroupManager } from '@federation/groups'
 export { PermissionEngine } from '@federation/permissions'
+export { ChatManager } from '@federation/chat'
 
 export interface AppConfig extends FederationConfig {
   identity: LocalIdentity
@@ -25,6 +27,7 @@ export class FederatedWorkspace extends WorkspaceFederation {
   readonly groups: GroupManager
   readonly permissions: PermissionEngine
   readonly identity: LocalIdentity
+  readonly chat: ChatManager
 
   private activeGroupId: DocumentId | null = null
 
@@ -33,6 +36,7 @@ export class FederatedWorkspace extends WorkspaceFederation {
     this.identity = identity
     this.groups = new GroupManager(this, identity)
     this.permissions = new PermissionEngine(this.groups, identity)
+    this.chat = new ChatManager(this, this.groups, this.permissions, identity)
   }
 
   /** Initialize network + store, then wire up identity. */

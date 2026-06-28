@@ -27,3 +27,13 @@ export { PublicGroupBrowser } from './components/groups/PublicGroupBrowser.js'
 export type { PublicGroupBrowserProps, PublicGroupEntry } from './components/groups/PublicGroupBrowser.js'
 export { GroupSettings } from './components/groups/GroupSettings.js'
 export type { GroupSettingsProps, GroupSettingsCallbacks } from './components/groups/GroupSettings.js'
+
+// Chat UI components
+export { ChannelSidebar } from './components/chat/ChannelSidebar.js'
+export type { ChannelSidebarProps } from './components/chat/ChannelSidebar.js'
+export { MessageList } from './components/chat/MessageList.js'
+export type { MessageListProps } from './components/chat/MessageList.js'
+export { MessageInput } from './components/chat/MessageInput.js'
+export type { MessageInputProps } from './components/chat/MessageInput.js'
+export { GroupChatView } from './components/chat/GroupChatView.js'
+export type { GroupChatViewProps } from './components/chat/GroupChatView.js'

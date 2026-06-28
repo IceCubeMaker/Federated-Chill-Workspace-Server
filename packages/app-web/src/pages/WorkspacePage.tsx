@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react'
-import type { DocumentId, GroupDocument } from '@federation/models'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
+import type { DocumentId, GroupDocument, PeerIdStr, UserProfile } from '@federation/models'
 import {
   color, space, fontSize, fontWeight, radius,
-  GroupContextProvider, GroupSwitcher, GroupSettings,
+  GroupContextProvider, GroupSwitcher, GroupSettings, GroupChatView,
   Button, Modal, Input, Select, Badge, Avatar, Tooltip,
 } from '@federation/ui'
 import type { FederatedWorkspace } from '@federation/app'
@@ -138,18 +138,53 @@ function EmptyState({ onCreateGroup }: { onCreateGroup: () => void }) {
   )
 }
 
+function useMembersMap(doc: GroupDocument, currentUserId: string, identity: WorkspaceState['identity']): Map<PeerIdStr, UserProfile> {
+  const mapRef = useRef<Map<PeerIdStr, UserProfile>>(new Map())
+
+  useEffect(() => {
+    const map = new Map<PeerIdStr, UserProfile>()
+    const myProfile = identity?.getProfile()
+    for (const memberId of doc.members) {
+      if (memberId === currentUserId && myProfile) {
+        map.set(memberId, myProfile)
+      } else {
+        map.set(memberId, {
+          userId: memberId,
+          displayName: memberId.slice(0, 12),
+          publicKeyHex: '',
+          createdAt: 0,
+        })
+      }
+    }
+    mapRef.current = map
+  }, [doc.members, currentUserId, identity])
+
+  return mapRef.current
+}
+
 function GroupView({
   groupId,
   doc,
   workspace,
   currentUserId,
+  identity,
 }: {
   groupId: DocumentId
   doc: GroupDocument
   workspace: FederatedWorkspace
   currentUserId: string
+  identity: WorkspaceState['identity']
 }) {
-  const [view, setView] = useState<'home' | 'settings'>('home')
+  const [view, setView] = useState<'chat' | 'settings'>('chat')
+  const [canCreateChannel, setCanCreateChannel] = useState(false)
+  const [canSendMessage, setCanSendMessage] = useState(true)
+  const members = useMembersMap(doc, currentUserId, identity)
+
+  // Check permissions for chat actions
+  useEffect(() => {
+    void workspace.permissions.canPerform(currentUserId, groupId, 'create_channel').then(setCanCreateChannel)
+    void workspace.permissions.canPerform(currentUserId, groupId, 'send_message').then(setCanSendMessage)
+  }, [workspace.permissions, currentUserId, groupId])
 
   const cb = {
     onUpdateMetadata: async (patch: Partial<GroupDocument['metadata']>) => {
@@ -209,7 +244,7 @@ function GroupView({
           {doc.metadata.visibility}
         </Badge>
         <button
-          onClick={() => setView(view === 'settings' ? 'home' : 'settings')}
+          onClick={() => setView(view === 'settings' ? 'chat' : 'settings')}
           style={{
             background: view === 'settings' ? color.surface3 : 'transparent',
             border: `1px solid ${view === 'settings' ? color.border : 'transparent'}`,
@@ -225,30 +260,21 @@ function GroupView({
       </header>
 
       {/* Body */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {view === 'settings' ? (
-          <GroupSettings groupId={groupId} doc={doc} currentUserId={currentUserId} cb={cb} />
-        ) : (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            gap: space[3],
-            color: color.textMuted,
-          }}>
-            <div style={{ fontSize: 40 }}>💬</div>
-            <p style={{ fontSize: fontSize.sm }}>
-              {doc.members.length} member{doc.members.length !== 1 ? 's' : ''} · Sync active
-            </p>
-            <div style={{ display: 'flex', gap: space[2], flexWrap: 'wrap', justifyContent: 'center' }}>
-              {doc.members.map((m) => <Avatar key={m} name={m} size={28} />)}
-            </div>
-            <p style={{ fontSize: fontSize.xs, color: color.textMuted, marginTop: space[4] }}>
-              Document editing coming in Step 3
-            </p>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <GroupSettings groupId={groupId} doc={doc} currentUserId={currentUserId} cb={cb} />
           </div>
+        ) : (
+          <GroupChatView
+            groupId={groupId}
+            doc={doc}
+            chat={workspace.chat}
+            currentUserId={currentUserId}
+            members={members}
+            canCreateChannel={canCreateChannel}
+            canSendMessage={canSendMessage}
+          />
         )}
       </div>
     </div>
@@ -296,6 +322,7 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
               doc={activeGroup.doc}
               workspace={workspace}
               currentUserId={currentUserId}
+              identity={state.identity}
             />
           ) : (
             <EmptyState onCreateGroup={() => setCreateOpen(true)} />

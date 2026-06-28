@@ -33,5 +33,12 @@ export function getDefaultPermissions(_creatorId: PeerIdStr): Record<Action, Per
     change_permission:   adminOnly('change_permission'),
     edit_group_metadata: adminOnly('edit_group_metadata'),
     delete_group:        adminOnly('delete_group'),
+    // Chat
+    create_channel:      adminOnly('create_channel'),
+    delete_channel:      adminOnly('delete_channel'),
+    edit_channel:        adminOnly('edit_channel'),
+    send_message:        memberAndAdmin('send_message'),
+    delete_message:      adminOnly('delete_message'),
+    manage_messages:     adminOnly('manage_messages'),
   }
 }
