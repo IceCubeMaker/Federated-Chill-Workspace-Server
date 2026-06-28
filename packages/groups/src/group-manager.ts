@@ -1,12 +1,13 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { DocumentId, GroupDocument, GroupMetadata, PeerIdStr, Action, PermissionRule, Role, RoleId } from '@federation/models'
+import type { DocumentId, GroupDocument, GroupMetadata, PeerIdStr, Action, PermissionRule, Role, RoleId, RootDocument } from '@federation/models'
 import type { LocalIdentity } from '@federation/auth'
 import type { WorkspaceFederation } from '@federation/sync'
 import { GroupCrypto } from './group-crypto.js'
 import { getDefaultPermissions, ADMIN_ROLE_ID, MEMBER_ROLE_ID } from './default-permissions.js'
 
 const DM_TOPIC_PREFIX = 'sync:dm:'
-const GROUP_REGISTRY_KEY = 'fed:group-registry'
+// Legacy localStorage key — used only for migrating existing installs
+const LS_GROUP_REGISTRY_KEY = 'fed:group-registry'
 
 // Minimal localStorage shape (avoids DOM lib dependency)
 interface LS { getItem(k: string): string | null; setItem(k: string, v: string): void }
@@ -18,6 +19,7 @@ const _ls = (): LS | null => {
 export class GroupManager {
   /** groupId → symmetric group key */
   private readonly groupKeys = new Map<DocumentId, Uint8Array>()
+  private rootDocId: DocumentId | null = null
 
   constructor(
     private readonly federation: WorkspaceFederation,
@@ -25,40 +27,69 @@ export class GroupManager {
   ) {}
 
   /**
-   * Restore groups persisted from previous sessions.
-   * Must be called after federation is initialized so documents can be loaded.
+   * Initialise the personal root document and restore all groups.
+   * If a root doc already exists (ID stored in identity), load it from
+   * IndexedDB and sync from P2P. If not, create one — migrating any legacy
+   * localStorage data in the process.
    */
   async restoreGroups(): Promise<void> {
-    const ls = _ls()
-    if (!ls) return
-    let registry: Record<string, number[]>
-    try {
-      registry = JSON.parse(ls.getItem(GROUP_REGISTRY_KEY) ?? '{}') as Record<string, number[]>
-    } catch { return }
-
+    const rootDocKey = await this.identity.deriveRootDocKey()
+    const existingId = this.identity.getRootDocId() as DocumentId | null
     const repo = this.federation.getRepo()
-    const loadPromises: Promise<unknown>[] = []
 
-    for (const [docId, keyArr] of Object.entries(registry)) {
-      const groupKey = new Uint8Array(keyArr)
-      this.groupKeys.set(docId as DocumentId, groupKey)
-      repo.importKey(docId as DocumentId, groupKey)
-      // Eagerly load the document from IndexedDB so docSync() works immediately
-      const handle = repo.getHandle<GroupDocument>(docId as DocumentId)
-      loadPromises.push(handle.doc().catch(() => { /* ignore missing docs */ }))
+    if (existingId) {
+      this.rootDocId = existingId
+      repo.importKey(existingId, rootDocKey)
+      const handle = repo.getHandle<RootDocument>(existingId)
+      let rootDoc: RootDocument | undefined
+      try {
+        rootDoc = (await handle.doc()) ?? undefined
+      } catch { /* not available yet; peers will sync it */ }
+
+      if (rootDoc) {
+        // Migrate any localStorage entries not yet in the root doc
+        const lsData = this.#readLsRegistry()
+        const toMerge = Object.entries(lsData).filter(([id]) => !rootDoc!.groupIds.includes(id))
+        if (toMerge.length > 0) {
+          await repo.updateDocument<RootDocument>(existingId, (d) => {
+            for (const [id, keyArr] of toMerge) {
+              if (!d.groupIds.includes(id)) d.groupIds.push(id)
+              if (!d.groupKeys[id]) d.groupKeys[id] = keyArr
+            }
+          })
+          rootDoc = handle.docSync() ?? rootDoc
+        }
+
+        // Restore group keys and eagerly load each group doc
+        const loadPromises: Promise<unknown>[] = []
+        for (const [id, keyArr] of Object.entries(rootDoc.groupKeys)) {
+          const groupKey = new Uint8Array(keyArr as number[])
+          this.groupKeys.set(id as DocumentId, groupKey)
+          repo.importKey(id as DocumentId, groupKey)
+          const h = repo.getHandle<GroupDocument>(id as DocumentId)
+          loadPromises.push(h.doc().catch(() => {}))
+        }
+        await Promise.all(loadPromises)
+      }
+    } else {
+      // First run — pull any legacy localStorage data, then create root doc
+      const lsData = this.#readLsRegistry()
+
+      const loadPromises: Promise<unknown>[] = []
+      for (const [id, keyArr] of Object.entries(lsData)) {
+        const groupKey = new Uint8Array(keyArr as number[])
+        this.groupKeys.set(id as DocumentId, groupKey)
+        repo.importKey(id as DocumentId, groupKey)
+        const h = repo.getHandle<GroupDocument>(id as DocumentId)
+        loadPromises.push(h.doc().catch(() => {}))
+      }
+      await Promise.all(loadPromises)
+
+      const initialDoc: RootDocument = { groupIds: Object.keys(lsData), groupKeys: lsData }
+      const rootDocId = await this.federation.createDocumentWithKey<RootDocument>(initialDoc, rootDocKey)
+      this.rootDocId = rootDocId
+      await this.identity.setRootDocId(rootDocId)
     }
-
-    await Promise.all(loadPromises)
-  }
-
-  private saveGroupToRegistry(docId: DocumentId, groupKey: Uint8Array): void {
-    const ls = _ls()
-    if (!ls) return
-    try {
-      const existing = JSON.parse(ls.getItem(GROUP_REGISTRY_KEY) ?? '{}') as Record<string, number[]>
-      existing[docId] = Array.from(groupKey)
-      ls.setItem(GROUP_REGISTRY_KEY, JSON.stringify(existing))
-    } catch { /* ignore */ }
   }
 
   async createGroup(
@@ -98,7 +129,7 @@ export class GroupManager {
     }
 
     const groupDoc: GroupDocument = {
-      id: '' as DocumentId, // filled in after creation
+      id: '' as DocumentId,
       metadata: { name, visibility, isPubliclyViewable },
       createdAt: Date.now(),
       createdBy: creatorId,
@@ -114,18 +145,13 @@ export class GroupManager {
 
     const docId = await this.federation.createDocument<GroupDocument>(groupDoc)
 
-    // Back-fill the id field
     await this.federation.updateDocument<GroupDocument>(docId, (doc) => {
       doc.id = docId
     })
 
     this.groupKeys.set(docId, groupKey)
-
-    // Also store the key in the federation repo so encrypted payloads work
     this.federation.getRepo().importKey(docId, groupKey)
-
-    // Persist so the group survives app restarts
-    this.saveGroupToRegistry(docId, groupKey)
+    await this.#saveGroupEntry(docId, groupKey)
 
     return docId
   }
@@ -163,12 +189,10 @@ export class GroupManager {
     const token = uuidv4()
     const myId = this.identity.getPeerId()
 
-    // Store invite token in the group document
     await this.federation.updateDocument<GroupDocument>(groupId, (doc) => {
       doc.pendingInvites[token] = { invitedBy: myId, invitedAt: Date.now(), forUserId: targetUserId }
     })
 
-    // Publish the encrypted key + token to the invitee's DM topic
     const dmPayload = JSON.stringify({
       type: 'group_invite',
       groupId,
@@ -193,9 +217,7 @@ export class GroupManager {
     const userId = this.identity.getPeerId()
 
     await this.federation.updateDocument<GroupDocument>(groupId, (doc) => {
-      // Remove invite token
       delete doc.pendingInvites[token]
-      // Add member
       if (!doc.members.includes(userId)) {
         doc.members.push(userId)
         const defaultRole = doc.roles[doc.defaultRoleId]
@@ -204,6 +226,8 @@ export class GroupManager {
         }
       }
     })
+
+    await this.#saveGroupEntry(groupId, groupKey)
   }
 
   async acceptApplication(groupId: DocumentId, applicantId: PeerIdStr): Promise<void> {
@@ -246,7 +270,6 @@ export class GroupManager {
     this.federation.getRepo().importKey(groupId, key)
   }
 
-  /** Update a role (requires permission check at call site). */
   async updateRole(groupId: DocumentId, roleId: RoleId, patch: Partial<Role>): Promise<void> {
     await this.federation.updateDocument<GroupDocument>(groupId, (doc) => {
       const role = doc.roles[roleId]
@@ -255,7 +278,6 @@ export class GroupManager {
     })
   }
 
-  /** Create a new role (requires permission check at call site). */
   async createRole(groupId: DocumentId, role: Omit<Role, 'id'>): Promise<RoleId> {
     const roleId = uuidv4() as RoleId
     await this.federation.updateDocument<GroupDocument>(groupId, (doc) => {
@@ -264,21 +286,18 @@ export class GroupManager {
     return roleId
   }
 
-  /** Delete a role (requires permission check at call site). */
   async deleteRole(groupId: DocumentId, roleId: RoleId): Promise<void> {
     await this.federation.updateDocument<GroupDocument>(groupId, (doc) => {
       delete doc.roles[roleId]
     })
   }
 
-  /** Update a permission rule (requires canChangePermission check at call site). */
   async updatePermission(groupId: DocumentId, rule: PermissionRule): Promise<void> {
     await this.federation.updateDocument<GroupDocument>(groupId, (doc) => {
       doc.permissions[rule.action] = rule
     })
   }
 
-  /** Kick a member from the group (requires kick_member permission check). */
   async kickMember(groupId: DocumentId, targetId: PeerIdStr): Promise<void> {
     await this.federation.updateDocument<GroupDocument>(groupId, (doc) => {
       doc.members = doc.members.filter((m) => m !== targetId)
@@ -296,5 +315,34 @@ export class GroupManager {
     const key = this.groupKeys.get(groupId)
     if (!key) throw new Error(`No group key for ${groupId}`)
     return key
+  }
+
+  /** Persist a group entry to both the root doc (P2P-replicatable) and localStorage (local fallback). */
+  async #saveGroupEntry(groupId: DocumentId, groupKey: Uint8Array): Promise<void> {
+    const keyArr = Array.from(groupKey)
+
+    if (this.rootDocId) {
+      await this.federation.getRepo().updateDocument<RootDocument>(this.rootDocId, (doc) => {
+        if (!doc.groupIds.includes(groupId)) doc.groupIds.push(groupId)
+        doc.groupKeys[groupId] = keyArr
+      })
+    }
+
+    const ls = _ls()
+    if (ls) {
+      try {
+        const existing = JSON.parse(ls.getItem(LS_GROUP_REGISTRY_KEY) ?? '{}') as Record<string, number[]>
+        existing[groupId] = keyArr
+        ls.setItem(LS_GROUP_REGISTRY_KEY, JSON.stringify(existing))
+      } catch { /* ignore */ }
+    }
+  }
+
+  #readLsRegistry(): Record<string, number[]> {
+    const ls = _ls()
+    if (!ls) return {}
+    try {
+      return JSON.parse(ls.getItem(LS_GROUP_REGISTRY_KEY) ?? '{}') as Record<string, number[]>
+    } catch { return {} }
   }
 }

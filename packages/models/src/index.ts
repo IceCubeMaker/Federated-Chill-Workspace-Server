@@ -154,6 +154,21 @@ export interface ReadState {
   readAt: number
 }
 
+// ─── Root Document ────────────────────────────────────────────────────────────
+
+/**
+ * Personal index document — one per identity, encrypted with a key derived
+ * from the private key so only the owner can read it.
+ * Stored as a regular Automerge doc so it replicates to every peer who has
+ * the owner's group docs (swarm-pinned like any other doc).
+ */
+export interface RootDocument {
+  /** DocumentIds of all groups this identity is a member of. */
+  groupIds: string[]
+  /** Per-group symmetric encryption keys, stored as byte arrays. */
+  groupKeys: Record<string, number[]>
+}
+
 // ─── User Profile ─────────────────────────────────────────────────────────────
 export interface UserProfile {
   userId: PeerIdStr

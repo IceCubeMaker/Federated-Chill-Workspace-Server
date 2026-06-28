@@ -31,6 +31,8 @@ interface StoredIdentity {
   privateKeyHex?: string
   /** Present only when password-protected (argon2id + secretbox). */
   encrypted?: EncryptedKey
+  /** Automerge document ID of the personal root document (group registry). */
+  rootDocId?: string
   profile: UserProfile
 }
 
@@ -183,6 +185,33 @@ export class LocalIdentity {
       this.unlockedKey = null
     }
     await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+  }
+
+  getRootDocId(): string | null {
+    return this.stored.rootDocId ?? null
+  }
+
+  async setRootDocId(id: string): Promise<void> {
+    this.stored.rootDocId = id
+    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+  }
+
+  /**
+   * Derive a deterministic 32-byte symmetric key from the private key.
+   * Used to encrypt the personal root document so it can be stored/replicated
+   * on other peers without leaking group membership info.
+   */
+  async deriveRootDocKey(): Promise<Uint8Array> {
+    const s = await sodium()
+    const sk = this.#requireKey()
+    // ed25519 private key = 64 bytes (seed || public key); first 32 bytes is the seed
+    const seed = sk.slice(0, s.crypto_kdf_KEYBYTES)
+    return s.crypto_kdf_derive_from_key(
+      s.crypto_secretbox_KEYBYTES, // 32 bytes
+      1,           // subkey index
+      'rootdoc1',  // must be exactly 8 bytes
+      seed,
+    )
   }
 
   getProfile(): UserProfile {

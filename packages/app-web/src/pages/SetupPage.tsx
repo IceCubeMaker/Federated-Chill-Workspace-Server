@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState } from 'react'
 import { color, space, fontSize, fontWeight, radius } from '@federation/ui'
 import { Button, Input } from '@federation/ui'
 
@@ -8,22 +8,12 @@ export interface SetupPageProps {
   error?: string
 }
 
-type Tab = 'create' | 'import'
-
-export function SetupPage({ onComplete, onImport, error }: SetupPageProps) {
-  const [tab, setTab] = useState<Tab>('create')
-
-  // Create tab state
+export function SetupPage({ onComplete, error }: SetupPageProps) {
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
-
-  // Import tab state
-  const [importBlob, setImportBlob] = useState('')
-  const [importing, setImporting] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword
   const canCreate = name.trim().length > 0 && password.length >= 8 && !passwordMismatch
@@ -41,41 +31,7 @@ export function SetupPage({ onComplete, onImport, error }: SetupPageProps) {
     }
   }
 
-  const handleImport = async () => {
-    if (!importBlob.trim()) return
-    setImporting(true)
-    setLocalError(null)
-    try {
-      await onImport(importBlob.trim())
-    } catch (err) {
-      setLocalError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => setImportBlob((ev.target?.result as string) ?? '')
-    reader.readAsText(file)
-  }
-
   const displayError = localError ?? error
-
-  const tabStyle = (active: boolean) => ({
-    flex: 1,
-    padding: `${space[2]} ${space[3]}`,
-    border: 'none',
-    borderBottom: `2px solid ${active ? color.brandPrimary : 'transparent'}`,
-    background: 'none',
-    color: active ? color.brandPrimary : color.textMuted,
-    cursor: 'pointer',
-    fontSize: fontSize.sm,
-    fontWeight: active ? fontWeight.semibold : fontWeight.normal,
-    transition: 'color 0.15s, border-color 0.15s',
-  } as React.CSSProperties)
 
   return (
     <div style={{
@@ -94,7 +50,6 @@ export function SetupPage({ onComplete, onImport, error }: SetupPageProps) {
         alignItems: 'center',
         gap: space[6],
       }}>
-        {/* Logo mark */}
         <div style={{
           width: 72,
           height: 72,
@@ -122,108 +77,56 @@ export function SetupPage({ onComplete, onImport, error }: SetupPageProps) {
           background: color.surface1,
           border: `1px solid ${color.border}`,
           borderRadius: radius.lg,
+          padding: space[6],
           width: '100%',
-          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: space[4],
         }}>
-          {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: `1px solid ${color.border}` }}>
-            <button style={tabStyle(tab === 'create')} onClick={() => { setTab('create'); setLocalError(null) }}>
-              New identity
-            </button>
-            <button style={tabStyle(tab === 'import')} onClick={() => { setTab('import'); setLocalError(null) }}>
-              Import identity
-            </button>
+          <div>
+            <h2 style={{ color: color.textPrimary, fontSize: fontSize.md, fontWeight: fontWeight.semibold, margin: 0 }}>
+              Create your identity
+            </h2>
+            <p style={{ color: color.textSecondary, fontSize: fontSize.sm, marginTop: space[1], marginBottom: 0 }}>
+              Your keys are generated locally. Your password encrypts your private key so you can back it up or move to another device.
+            </p>
           </div>
-
-          <div style={{ padding: space[6], display: 'flex', flexDirection: 'column', gap: space[4] }}>
-            {tab === 'create' ? (
-              <>
-                <p style={{ color: color.textSecondary, fontSize: fontSize.sm, margin: 0 }}>
-                  Your keys are generated locally and never leave your device without encryption. Your password protects your private key and lets you log in from other devices.
-                </p>
-                <Input
-                  label="Display name"
-                  placeholder="e.g. Alice"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoFocus
-                />
-                <Input
-                  label="Password (min 8 chars)"
-                  placeholder="Choose a strong password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  type="password"
-                />
-                <Input
-                  label="Confirm password"
-                  placeholder="Repeat your password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  type="password"
-                  onKeyDown={(e) => { if (e.key === 'Enter') void handleCreate() }}
-                />
-                {passwordMismatch && (
-                  <p style={{ margin: 0, fontSize: fontSize.sm, color: color.error }}>Passwords do not match</p>
-                )}
-                {displayError && (
-                  <p style={{ margin: 0, fontSize: fontSize.sm, color: color.error }}>{displayError}</p>
-                )}
-                <Button
-                  disabled={!canCreate}
-                  loading={submitting}
-                  onClick={() => void handleCreate()}
-                  style={{ width: '100%', justifyContent: 'center' }}
-                >
-                  Create identity →
-                </Button>
-              </>
-            ) : (
-              <>
-                <p style={{ color: color.textSecondary, fontSize: fontSize.sm, margin: 0 }}>
-                  Paste your exported identity blob or load it from a file. Your data will sync from the P2P network once connected.
-                </p>
-                <textarea
-                  value={importBlob}
-                  onChange={(e) => setImportBlob(e.target.value)}
-                  placeholder='Paste identity JSON here…'
-                  rows={5}
-                  style={{
-                    width: '100%',
-                    background: color.surface2,
-                    border: `1px solid ${color.border}`,
-                    borderRadius: radius.md,
-                    color: color.textPrimary,
-                    fontSize: fontSize.xs,
-                    fontFamily: 'monospace',
-                    padding: space[3],
-                    resize: 'vertical',
-                    boxSizing: 'border-box',
-                    outline: 'none',
-                  }}
-                />
-                <Button
-                  variant="ghost"
-                  onClick={() => fileRef.current?.click()}
-                  style={{ width: '100%', justifyContent: 'center' }}
-                >
-                  Load from file
-                </Button>
-                <input ref={fileRef} type="file" accept=".json,application/json,text/plain" style={{ display: 'none' }} onChange={handleFile} />
-                {displayError && (
-                  <p style={{ margin: 0, fontSize: fontSize.sm, color: color.error }}>{displayError}</p>
-                )}
-                <Button
-                  disabled={!importBlob.trim()}
-                  loading={importing}
-                  onClick={() => void handleImport()}
-                  style={{ width: '100%', justifyContent: 'center' }}
-                >
-                  Import identity →
-                </Button>
-              </>
-            )}
-          </div>
+          <Input
+            label="Display name"
+            placeholder="e.g. Alice"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+          <Input
+            label="Password (min 8 characters)"
+            placeholder="Choose a strong password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+          />
+          <Input
+            label="Confirm password"
+            placeholder="Repeat your password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            type="password"
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleCreate() }}
+          />
+          {passwordMismatch && (
+            <p style={{ margin: 0, fontSize: fontSize.sm, color: color.error }}>Passwords do not match</p>
+          )}
+          {displayError && (
+            <p style={{ margin: 0, fontSize: fontSize.sm, color: color.error }}>{displayError}</p>
+          )}
+          <Button
+            disabled={!canCreate}
+            loading={submitting}
+            onClick={() => void handleCreate()}
+            style={{ width: '100%', justifyContent: 'center' }}
+          >
+            Get started →
+          </Button>
         </div>
 
         <p style={{ color: color.textMuted, fontSize: fontSize.xs, textAlign: 'center' }}>

@@ -78,6 +78,13 @@ export class WorkspaceFederation {
     return docId
   }
 
+  async createDocumentWithKey<T>(initialData: T, key: Uint8Array): Promise<DocumentId> {
+    this.#assertInitialized()
+    const docId = await this.repo.createDocumentWithKey(initialData, key)
+    this.stateMachine.queueSync(docId)
+    return docId
+  }
+
   getDocument<T>(docId: DocumentId): T {
     this.#assertInitialized()
     return this.repo.getDocument<T>(docId) as T
