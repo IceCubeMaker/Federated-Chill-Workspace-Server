@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <!-- Hexagon shape -->
+  <polygon points="50,5 93,27.5 93,72.5 50,95 7,72.5 7,27.5" fill="url(#g)"/>
+  <!-- Inner hex ring -->
+  <polygon points="50,18 82,35.5 82,64.5 50,82 18,64.5 18,35.5" fill="none" stroke="#fff" stroke-width="3" stroke-opacity="0.4"/>
+  <!-- Center dot -->
+  <circle cx="50" cy="50" r="8" fill="#fff" fill-opacity="0.9"/>
+</svg>

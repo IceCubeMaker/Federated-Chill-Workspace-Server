@@ -53,7 +53,10 @@ var DocumentCrypto = class {
 // src/storage-adapter.ts
 async function getStorageAdapter(platform, dataDir) {
   if (platform === "node") {
-    const { NodeFSStorageAdapter } = await import("@automerge/automerge-repo-storage-nodefs");
+    const { NodeFSStorageAdapter } = await import(
+      /* @vite-ignore */
+      "@automerge/automerge-repo-storage-nodefs"
+    );
     return new NodeFSStorageAdapter(dataDir ?? "./data");
   } else {
     const { IndexedDBStorageAdapter } = await import("@automerge/automerge-repo-storage-indexeddb");

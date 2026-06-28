@@ -1,0 +1,51 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "build": {
+    "beforeDevCommand":   "pnpm --filter @federation/app-web dev",
+    "beforeBuildCommand": "pnpm --filter @federation/app-web build",
+    "devPath":   "http://localhost:5173",
+    "distDir":   "../app-web/dist"
+  },
+  "package": {
+    "productName": "Federated Workspace",
+    "version":     "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "fs": {
+        "all":   true,
+        "scope": ["$APPDATA/*", "$APPCONFIG/*"]
+      },
+      "path": { "all": true },
+      "dialog": { "all": true },
+      "notification": { "all": true }
+    },
+    "bundle": {
+      "active":     true,
+      "targets":    "all",
+      "identifier": "dev.federated.workspace",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ]
+    },
+    "security": { "csp": null },
+    "updater":  { "active": false },
+    "windows": [
+      {
+        "fullscreen":  false,
+        "resizable":   true,
+        "title":       "Federated Workspace",
+        "width":       1200,
+        "height":      800,
+        "minWidth":    800,
+        "minHeight":   600,
+        "decorations": true
+      }
+    ]
+  }
+}

@@ -278,8 +278,8 @@ var WorkspaceFederation = class {
   stateMachine;
   initialized = false;
   async initialize(config) {
-    const { dataDir, platform, bootstrapPeers = [], listenAddresses } = config;
-    this.node = await createLibp2pNode({ bootstrapPeers, listenAddresses });
+    const { dataDir, platform, bootstrapPeers = [], listenAddresses, nodeRole } = config;
+    this.node = await createLibp2pNode({ bootstrapPeers, listenAddresses, nodeRole });
     await this.node.start();
     const storageAdapter = await getStorageAdapter(platform, dataDir);
     this.repo = new RepoManager(storageAdapter, platform);
@@ -352,6 +352,20 @@ var WorkspaceFederation = class {
   getPubSub() {
     this.#assertInitialized();
     return this.pubsub;
+  }
+  /**
+   * Returns the multiaddrs this node is listening on.
+   * Desktop/server nodes include TCP and WebSocket addresses that browser clients
+   * can use to connect directly. Browsers get /webrtc circuit-relay addresses.
+   */
+  getListenAddresses() {
+    this.#assertInitialized();
+    return this.node.getMultiaddrs().map((ma) => ma.toString());
+  }
+  /** Local peer ID string */
+  getPeerId() {
+    this.#assertInitialized();
+    return this.node.peerId.toString();
   }
   #assertInitialized() {
     if (!this.initialized) throw new Error("WorkspaceFederation not initialized. Call initialize() first.");

@@ -1,7 +1,7 @@
 import { PeerId, Libp2p } from '@libp2p/interface';
 import { DocumentId, PeerIdStr, CheckpointMessage, SyncState } from '@federation/types';
 import { RepoManager, Platform } from '@federation/store';
-import { PubSubManager, PeerRouting } from '@federation/network';
+import { PubSubManager, PeerRouting, NodeRole } from '@federation/network';
 
 declare class ReplicationStrategy {
     selectReplicaPeers(available: PeerId[], exclude: PeerId[], count?: number): PeerId[];
@@ -56,6 +56,12 @@ interface FederationConfig {
     platform: Platform;
     bootstrapPeers?: string[];
     listenAddresses?: string[];
+    /**
+     * 'server': Full relay + DHT server (desktop / Node.js).
+     * 'client': Browser mode — uses relay for inbound reachability.
+     * 'auto' (default): Detect from environment.
+     */
+    nodeRole?: NodeRole;
 }
 declare class WorkspaceFederation {
     #private;
@@ -87,6 +93,14 @@ declare class WorkspaceFederation {
     getNode(): Libp2p;
     /** Expose pubsub manager for group DM topics */
     getPubSub(): PubSubManager;
+    /**
+     * Returns the multiaddrs this node is listening on.
+     * Desktop/server nodes include TCP and WebSocket addresses that browser clients
+     * can use to connect directly. Browsers get /webrtc circuit-relay addresses.
+     */
+    getListenAddresses(): string[];
+    /** Local peer ID string */
+    getPeerId(): string;
 }
 
 export { type FederationConfig, ReplicationStrategy, StateMachine, SyncEngine, VerificationService, WorkspaceFederation };

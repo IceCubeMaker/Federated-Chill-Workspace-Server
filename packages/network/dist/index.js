@@ -1,13 +1,11 @@
 // src/libp2p-config.ts
 import { createLibp2p } from "libp2p";
-import { tcp } from "@libp2p/tcp";
 import { webSockets } from "@libp2p/websockets";
 import { webTransport } from "@libp2p/webtransport";
 import { noise } from "@chainsafe/libp2p-noise";
 import { yamux } from "@chainsafe/libp2p-yamux";
 import { kadDHT } from "@libp2p/kad-dht";
 import { gossipsub } from "@chainsafe/libp2p-gossipsub";
-import { mdns } from "@libp2p/mdns";
 import { bootstrap } from "@libp2p/bootstrap";
 var IPFS_BOOTSTRAP_PEERS = [
   "/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
@@ -19,23 +17,39 @@ var IPFS_BOOTSTRAP_PEERS = [
 async function createLibp2pNode(options = {}) {
   const {
     bootstrapPeers = IPFS_BOOTSTRAP_PEERS,
-    listenAddresses = ["/ip4/0.0.0.0/tcp/0", "/ip4/0.0.0.0/tcp/0/ws"],
-    announceAddresses = []
+    listenAddresses,
+    announceAddresses = [],
+    nodeRole = "auto"
   } = options;
   const isNode = typeof process !== "undefined" && process.versions?.node != null;
-  const transports = isNode ? [tcp(), webSockets()] : [webSockets(), webTransport()];
+  const isServer = nodeRole === "server" || nodeRole === "auto" && isNode;
+  const defaultListenAddresses = isServer ? ["/ip4/0.0.0.0/tcp/0", "/ip4/0.0.0.0/tcp/0/ws"] : [];
+  const resolvedListenAddresses = listenAddresses ?? defaultListenAddresses;
+  let transports;
+  if (isServer) {
+    const { tcp } = await import(
+      /* @vite-ignore */
+      "@libp2p/tcp"
+    );
+    transports = [tcp(), webSockets()];
+  } else {
+    transports = [webSockets(), webTransport()];
+  }
   const peerDiscovery = [];
   if (bootstrapPeers.length > 0) {
     peerDiscovery.push(bootstrap({ list: bootstrapPeers }));
   }
   if (isNode) {
+    const { mdns } = await import(
+      /* @vite-ignore */
+      "@libp2p/mdns"
+    );
     peerDiscovery.push(mdns({ interval: 2e4 }));
   }
   const node = await createLibp2p({
     addresses: {
-      listen: listenAddresses,
+      listen: resolvedListenAddresses,
       announce: announceAddresses,
-      // Allow all addresses through the announce filter
       announceFilter: (addrs) => addrs
     },
     transports,
@@ -43,11 +57,12 @@ async function createLibp2pNode(options = {}) {
     streamMuxers: [yamux()],
     peerDiscovery,
     services: {
+      // Server nodes route for others + store DHT values (clientMode: false).
+      // Client nodes only query the DHT, reducing load on browser tabs.
       dht: kadDHT({
-        clientMode: false,
+        clientMode: !isServer,
         kBucketSize: 20,
         // Match IPFS's DHT protocol so we share their routing table.
-        // Without this we'd be on an isolated /kad/1.0.0 island.
         protocol: "/ipfs/kad/1.0.0"
       }),
       pubsub: gossipsub({

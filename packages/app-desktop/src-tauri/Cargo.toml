@@ -1,0 +1,16 @@
+[package]
+name    = "federated-workspace"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.7", features = ["fs-all", "path-all", "dialog-all", "notification-all"] }
+serde       = { version = "1.0", features = ["derive"] }
+serde_json  = "1.0"
+
+[features]
+default       = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

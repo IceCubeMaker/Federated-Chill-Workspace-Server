@@ -1,7 +1,7 @@
 import type { Libp2p } from '@libp2p/interface'
 import type { SyncState, DocumentId } from '@federation/types'
 import type { Platform } from '@federation/store'
-import { createLibp2pNode, PeerRouting, PubSubManager } from '@federation/network'
+import { createLibp2pNode, PeerRouting, PubSubManager, type NodeRole } from '@federation/network'
 import { getStorageAdapter, RepoManager } from '@federation/store'
 import { ReplicationStrategy } from './replication-strategy.js'
 import { VerificationService } from './verification-service.js'
@@ -18,6 +18,12 @@ export interface FederationConfig {
   platform: Platform
   bootstrapPeers?: string[]
   listenAddresses?: string[]
+  /**
+   * 'server': Full relay + DHT server (desktop / Node.js).
+   * 'client': Browser mode — uses relay for inbound reachability.
+   * 'auto' (default): Detect from environment.
+   */
+  nodeRole?: NodeRole
 }
 
 export class WorkspaceFederation {
@@ -32,10 +38,10 @@ export class WorkspaceFederation {
   private initialized = false
 
   async initialize(config: FederationConfig): Promise<void> {
-    const { dataDir, platform, bootstrapPeers = [], listenAddresses } = config
+    const { dataDir, platform, bootstrapPeers = [], listenAddresses, nodeRole } = config
 
     // 1. Network layer
-    this.node = await createLibp2pNode({ bootstrapPeers, listenAddresses })
+    this.node = await createLibp2pNode({ bootstrapPeers, listenAddresses, nodeRole })
     await this.node.start()
 
     // 2. Store layer
@@ -129,6 +135,22 @@ export class WorkspaceFederation {
   getPubSub(): PubSubManager {
     this.#assertInitialized()
     return this.pubsub
+  }
+
+  /**
+   * Returns the multiaddrs this node is listening on.
+   * Desktop/server nodes include TCP and WebSocket addresses that browser clients
+   * can use to connect directly. Browsers get /webrtc circuit-relay addresses.
+   */
+  getListenAddresses(): string[] {
+    this.#assertInitialized()
+    return this.node.getMultiaddrs().map((ma) => ma.toString())
+  }
+
+  /** Local peer ID string */
+  getPeerId(): string {
+    this.#assertInitialized()
+    return this.node.peerId.toString()
   }
 
   #assertInitialized(): void {
