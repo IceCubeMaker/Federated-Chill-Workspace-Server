@@ -6,6 +6,14 @@ import { GroupCrypto } from './group-crypto.js'
 import { getDefaultPermissions, ADMIN_ROLE_ID, MEMBER_ROLE_ID } from './default-permissions.js'
 
 const DM_TOPIC_PREFIX = 'sync:dm:'
+const GROUP_REGISTRY_KEY = 'fed:group-registry'
+
+// Minimal localStorage shape (avoids DOM lib dependency)
+interface LS { getItem(k: string): string | null; setItem(k: string, v: string): void }
+const _ls = (): LS | null => {
+  const g = globalThis as Record<string, unknown>
+  return typeof g['localStorage'] !== 'undefined' ? (g['localStorage'] as LS) : null
+}
 
 export class GroupManager {
   /** groupId → symmetric group key */
@@ -15,6 +23,43 @@ export class GroupManager {
     private readonly federation: WorkspaceFederation,
     private readonly identity: LocalIdentity,
   ) {}
+
+  /**
+   * Restore groups persisted from previous sessions.
+   * Must be called after federation is initialized so documents can be loaded.
+   */
+  async restoreGroups(): Promise<void> {
+    const ls = _ls()
+    if (!ls) return
+    let registry: Record<string, number[]>
+    try {
+      registry = JSON.parse(ls.getItem(GROUP_REGISTRY_KEY) ?? '{}') as Record<string, number[]>
+    } catch { return }
+
+    const repo = this.federation.getRepo()
+    const loadPromises: Promise<unknown>[] = []
+
+    for (const [docId, keyArr] of Object.entries(registry)) {
+      const groupKey = new Uint8Array(keyArr)
+      this.groupKeys.set(docId as DocumentId, groupKey)
+      repo.importKey(docId as DocumentId, groupKey)
+      // Eagerly load the document from IndexedDB so docSync() works immediately
+      const handle = repo.getHandle<GroupDocument>(docId as DocumentId)
+      loadPromises.push(handle.doc().catch(() => { /* ignore missing docs */ }))
+    }
+
+    await Promise.all(loadPromises)
+  }
+
+  private saveGroupToRegistry(docId: DocumentId, groupKey: Uint8Array): void {
+    const ls = _ls()
+    if (!ls) return
+    try {
+      const existing = JSON.parse(ls.getItem(GROUP_REGISTRY_KEY) ?? '{}') as Record<string, number[]>
+      existing[docId] = Array.from(groupKey)
+      ls.setItem(GROUP_REGISTRY_KEY, JSON.stringify(existing))
+    } catch { /* ignore */ }
+  }
 
   async createGroup(
     name: string,
@@ -78,6 +123,9 @@ export class GroupManager {
 
     // Also store the key in the federation repo so encrypted payloads work
     this.federation.getRepo().importKey(docId, groupKey)
+
+    // Persist so the group survives app restarts
+    this.saveGroupToRegistry(docId, groupKey)
 
     return docId
   }

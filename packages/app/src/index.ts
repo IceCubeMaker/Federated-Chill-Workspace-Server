@@ -42,6 +42,8 @@ export class FederatedWorkspace extends WorkspaceFederation {
   /** Initialize network + store, then wire up identity. */
   override async initialize(config: AppConfig | FederationConfig): Promise<void> {
     await super.initialize(config)
+    // Restore groups persisted from previous sessions
+    await this.groups.restoreGroups()
   }
 
   /** Set the active group context for subsequent operations. */
