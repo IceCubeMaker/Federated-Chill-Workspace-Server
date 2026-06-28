@@ -9,7 +9,18 @@ import { gossipsub } from '@chainsafe/libp2p-gossipsub'
 import { mdns } from '@libp2p/mdns'
 import { bootstrap } from '@libp2p/bootstrap'
 
+// Public IPFS bootstrap nodes — run the same kad-dht protocol we use.
+// Joining their DHT gives us a global routing table for free.
+export const IPFS_BOOTSTRAP_PEERS = [
+  '/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
+  '/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa',
+  '/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb',
+  '/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt',
+  '/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ',
+]
+
 export interface LibP2PNodeOptions {
+  /** Override bootstrap peers. Defaults to IPFS_BOOTSTRAP_PEERS. Pass [] to disable. */
   bootstrapPeers?: string[]
   listenAddresses?: string[]
   announceAddresses?: string[]
@@ -17,7 +28,7 @@ export interface LibP2PNodeOptions {
 
 export async function createLibp2pNode(options: LibP2PNodeOptions = {}): Promise<Libp2p> {
   const {
-    bootstrapPeers = [],
+    bootstrapPeers = IPFS_BOOTSTRAP_PEERS,
     listenAddresses = ['/ip4/0.0.0.0/tcp/0', '/ip4/0.0.0.0/tcp/0/ws'],
     announceAddresses = [],
   } = options
@@ -54,6 +65,9 @@ export async function createLibp2pNode(options: LibP2PNodeOptions = {}): Promise
       dht: kadDHT({
         clientMode: false,
         kBucketSize: 20,
+        // Match IPFS's DHT protocol so we share their routing table.
+        // Without this we'd be on an isolated /kad/1.0.0 island.
+        protocol: '/ipfs/kad/1.0.0',
       }),
       pubsub: gossipsub({
         allowPublishToZeroTopicPeers: true,

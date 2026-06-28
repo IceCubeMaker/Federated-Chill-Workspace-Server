@@ -9,9 +9,16 @@ import { kadDHT } from "@libp2p/kad-dht";
 import { gossipsub } from "@chainsafe/libp2p-gossipsub";
 import { mdns } from "@libp2p/mdns";
 import { bootstrap } from "@libp2p/bootstrap";
+var IPFS_BOOTSTRAP_PEERS = [
+  "/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+  "/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+  "/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+  "/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+  "/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ"
+];
 async function createLibp2pNode(options = {}) {
   const {
-    bootstrapPeers = [],
+    bootstrapPeers = IPFS_BOOTSTRAP_PEERS,
     listenAddresses = ["/ip4/0.0.0.0/tcp/0", "/ip4/0.0.0.0/tcp/0/ws"],
     announceAddresses = []
   } = options;
@@ -38,7 +45,10 @@ async function createLibp2pNode(options = {}) {
     services: {
       dht: kadDHT({
         clientMode: false,
-        kBucketSize: 20
+        kBucketSize: 20,
+        // Match IPFS's DHT protocol so we share their routing table.
+        // Without this we'd be on an isolated /kad/1.0.0 island.
+        protocol: "/ipfs/kad/1.0.0"
       }),
       pubsub: gossipsub({
         allowPublishToZeroTopicPeers: true,
@@ -127,6 +137,7 @@ var PubSubManager = class {
   }
 };
 export {
+  IPFS_BOOTSTRAP_PEERS,
   PeerRouting,
   PubSubManager,
   createLibp2pNode

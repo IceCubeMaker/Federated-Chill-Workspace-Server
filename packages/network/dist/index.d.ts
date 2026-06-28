@@ -3,7 +3,9 @@ import * as _multiformats_multiaddr from '@multiformats/multiaddr';
 import { Libp2p as Libp2p$1, PeerId } from '@libp2p/interface';
 import { DocumentId } from '@federation/types';
 
+declare const IPFS_BOOTSTRAP_PEERS: string[];
 interface LibP2PNodeOptions {
+    /** Override bootstrap peers. Defaults to IPFS_BOOTSTRAP_PEERS. Pass [] to disable. */
     bootstrapPeers?: string[];
     listenAddresses?: string[];
     announceAddresses?: string[];
@@ -29,4 +31,4 @@ declare class PubSubManager {
     unsubscribe(topic: string): void;
 }
 
-export { type LibP2PNodeOptions, PeerRouting, PubSubManager, createLibp2pNode };
+export { IPFS_BOOTSTRAP_PEERS, type LibP2PNodeOptions, PeerRouting, PubSubManager, createLibp2pNode };
