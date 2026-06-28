@@ -403,7 +403,7 @@ export function WorkspacePage({ state, onSwitchGroup, onCreateGroup, onRefreshGr
       {/* Create group modal */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create a group">
         <div style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
-          <Input label="Group name" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
+          <Input label="Group name" value={newName} onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }} />
           <Select
             label="Visibility"

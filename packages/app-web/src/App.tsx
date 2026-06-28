@@ -15,7 +15,8 @@ export function App() {
   if (!setupDone) {
     return (
       <SetupPage
-        onComplete={() => {
+        onComplete={(displayName) => {
+          localStorage.setItem('fed-pending-display-name', displayName)
           localStorage.setItem(SETUP_DONE_KEY, '1')
           setSetupDone(true)
         }}

@@ -16,7 +16,7 @@ export interface WorkspaceState {
   listenAddresses: string[]
 }
 
-const STORAGE_KEY = 'fed-workspace-data'
+const PENDING_NAME_KEY = 'fed-pending-display-name'
 
 function getBrowserDataDir(): string {
   // In browser context the dataDir is a logical key for IndexedDB
@@ -58,6 +58,12 @@ export function useWorkspace() {
       try {
         const identity = new LocalIdentity(getBrowserDataDir())
         await identity.load()
+        // Apply display name entered during first-run setup
+        const pendingName = localStorage.getItem(PENDING_NAME_KEY)
+        if (pendingName) {
+          await identity.updateProfile({ displayName: pendingName })
+          localStorage.removeItem(PENDING_NAME_KEY)
+        }
         identityRef.current = identity
 
         const ws = new FederatedWorkspace(identity)

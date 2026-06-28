@@ -81,6 +81,11 @@ export class LocalIdentity {
     return this.stored.profile
   }
 
+  async updateProfile(patch: { displayName?: string }): Promise<void> {
+    this.stored.profile = { ...this.stored.profile, ...patch }
+    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+  }
+
   getPeerId(): PeerIdStr {
     return this.stored.peerId
   }

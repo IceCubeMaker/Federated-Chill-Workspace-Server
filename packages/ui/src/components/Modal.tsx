@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { color, radius, space, fontSize, fontWeight } from '../tokens/index.js'
 
 export interface ModalProps {
@@ -19,13 +20,17 @@ export function Modal({ open, onClose, title, children, width = 480 }: ModalProp
 
   if (!open) return null
 
-  return (
+  const modal = (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.6)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backdropFilter: 'blur(4px)',
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        background: 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: `${space[4]} ${space[3]}`,
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
@@ -38,17 +43,19 @@ export function Modal({ open, onClose, title, children, width = 480 }: ModalProp
           borderRadius: radius.lg,
           width: '100%',
           maxWidth: width,
-          maxHeight: '90vh',
+          maxHeight: '80vh',
           overflow: 'auto',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
         }}
       >
         {title && (
           <div
             style={{
-              padding: `${space[4]} ${space[6]}`,
+              padding: `${space[4]} ${space[5]}`,
               borderBottom: `1px solid ${color.border}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
             <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: color.textPrimary }}>
@@ -57,16 +64,24 @@ export function Modal({ open, onClose, title, children, width = 480 }: ModalProp
             <button
               onClick={onClose}
               style={{
-                background: 'transparent', border: 'none', color: color.textMuted,
-                cursor: 'pointer', fontSize: fontSize.lg, lineHeight: 1, padding: space[1],
+                background: 'transparent',
+                border: 'none',
+                color: color.textMuted,
+                cursor: 'pointer',
+                fontSize: fontSize.lg,
+                lineHeight: 1,
+                padding: space[1],
+                outline: 'none',
               }}
             >
               ×
             </button>
           </div>
         )}
-        <div style={{ padding: space[6] }}>{children}</div>
+        <div style={{ padding: space[5] }}>{children}</div>
       </div>
     </div>
   )
+
+  return createPortal(modal, document.body)
 }

@@ -209,7 +209,6 @@ export function GroupChatView({
             value={newChannelName}
             onChange={(e) => setNewChannelName(e.target.value)}
             placeholder="e.g. announcements"
-            autoFocus
             onKeyDown={(e) => { if (e.key === 'Enter') void handleCreateChannel() }}
           />
           <div style={{ display: 'flex', gap: space[3], justifyContent: 'flex-end' }}>
