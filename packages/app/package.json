@@ -1,0 +1,30 @@
+{
+  "name": "@federation/app",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@federation/models": "workspace:*",
+    "@federation/auth": "workspace:*",
+    "@federation/sync": "workspace:*",
+    "@federation/groups": "workspace:*",
+    "@federation/permissions": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "tsup": "^8.1.0",
+    "typescript": "^5.4.5"
+  }
+}

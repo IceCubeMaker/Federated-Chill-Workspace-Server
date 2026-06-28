@@ -125,6 +125,12 @@ export class WorkspaceFederation {
     return this.node
   }
 
+  /** Expose pubsub manager for group DM topics */
+  getPubSub(): PubSubManager {
+    this.#assertInitialized()
+    return this.pubsub
+  }
+
   #assertInitialized(): void {
     if (!this.initialized) throw new Error('WorkspaceFederation not initialized. Call initialize() first.')
   }

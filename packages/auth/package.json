@@ -1,0 +1,29 @@
+{
+  "name": "@federation/auth",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@federation/models": "workspace:*",
+    "libsodium-wrappers": "^0.7.13",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/libsodium-wrappers": "^0.7.14",
+    "@types/uuid": "^9.0.8",
+    "@types/node": "^20.14.0",
+    "tsup": "^8.1.0",
+    "typescript": "^5.4.5"
+  }
+}
