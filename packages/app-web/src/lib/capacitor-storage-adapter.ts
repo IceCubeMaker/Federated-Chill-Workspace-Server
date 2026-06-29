@@ -5,9 +5,9 @@ type StorageKey = string[]
 
 // Keys like ['docId', 'incremental', 'hash'] → stored as
 //   FederatedWorkspace/automerge/docId/incremental/hash.bin
-// using native directory structure so files are browsable via USB.
+// External first (survives reinstall); silently falls back to Documents (always available).
 
-const ROOT = Directory.External
+const DIRS = [Directory.External, Directory.Documents] as const
 
 function pathFor(base: string, key: StorageKey): string {
   return `${base}/${key.join('/')}.bin`
@@ -34,43 +34,55 @@ export class CapacitorStorageAdapter implements StorageAdapterInterface {
   constructor(private readonly base: string = 'FederatedWorkspace/automerge') {}
 
   async load(key: StorageKey): Promise<Uint8Array | undefined> {
-    try {
-      const { data } = await Filesystem.readFile({ path: pathFor(this.base, key), directory: ROOT })
-      return b64ToU8(data as string)
-    } catch {
-      return undefined
+    for (const dir of DIRS) {
+      try {
+        const { data } = await Filesystem.readFile({ path: pathFor(this.base, key), directory: dir })
+        if (data) return b64ToU8(data as string)
+      } catch { /* try next */ }
     }
+    return undefined
   }
 
   async save(key: StorageKey, data: Uint8Array): Promise<void> {
-    await Filesystem.writeFile({
-      path: pathFor(this.base, key),
-      data: u8ToB64(data),
-      directory: ROOT,
-      recursive: true,
-    })
+    for (const dir of DIRS) {
+      try {
+        await Filesystem.writeFile({ path: pathFor(this.base, key), data: u8ToB64(data), directory: dir, recursive: true })
+        return
+      } catch { /* try next */ }
+    }
+    // Both directories unavailable — data will re-sync from peers.
   }
 
   async remove(key: StorageKey): Promise<void> {
-    try {
-      await Filesystem.deleteFile({ path: pathFor(this.base, key), directory: ROOT })
-    } catch { /* already gone */ }
+    for (const dir of DIRS) {
+      try { await Filesystem.deleteFile({ path: pathFor(this.base, key), directory: dir }) } catch { /* ok */ }
+    }
   }
 
   async loadRange(keyPrefix: StorageKey): Promise<Chunk[]> {
-    return this.#readDir(dirFor(this.base, keyPrefix), keyPrefix)
+    // Try each directory and merge unique keys (prefer External over Documents).
+    const seen = new Set<string>()
+    const results: Chunk[] = []
+    for (const dir of DIRS) {
+      const chunks = await this.#readDir(dirFor(this.base, keyPrefix), keyPrefix, dir)
+      for (const chunk of chunks) {
+        const k = chunk.key.join('/')
+        if (!seen.has(k)) { seen.add(k); results.push(chunk) }
+      }
+    }
+    return results
   }
 
   async removeRange(keyPrefix: StorageKey): Promise<void> {
-    try {
-      await Filesystem.rmdir({ path: dirFor(this.base, keyPrefix), directory: ROOT, recursive: true })
-    } catch { /* already gone */ }
+    for (const dir of DIRS) {
+      try { await Filesystem.rmdir({ path: dirFor(this.base, keyPrefix), directory: dir, recursive: true }) } catch { /* ok */ }
+    }
   }
 
-  async #readDir(dirPath: string, keyPrefix: StorageKey): Promise<Chunk[]> {
+  async #readDir(dirPath: string, keyPrefix: StorageKey, dir: typeof DIRS[number]): Promise<Chunk[]> {
     let files: Array<{ name: string; type?: string }>
     try {
-      const result = await Filesystem.readdir({ path: dirPath, directory: ROOT })
+      const result = await Filesystem.readdir({ path: dirPath, directory: dir })
       files = result.files as Array<{ name: string; type?: string }>
     } catch {
       return []
@@ -80,12 +92,16 @@ export class CapacitorStorageAdapter implements StorageAdapterInterface {
     for (const f of files) {
       const isDir = f.type === 'directory' || !f.name.includes('.')
       if (isDir) {
-        const sub = await this.#readDir(`${dirPath}/${f.name}`, [...keyPrefix, f.name])
+        const sub = await this.#readDir(`${dirPath}/${f.name}`, [...keyPrefix, f.name], dir)
         results.push(...sub)
       } else if (f.name.endsWith('.bin')) {
         const key = [...keyPrefix, f.name.slice(0, -4)] as StorageKey
-        const data = await this.load(key)
-        results.push({ key, data })
+        try {
+          const { data } = await Filesystem.readFile({ path: `${dirPath}/${f.name}`, directory: dir })
+          results.push({ key, data: data ? b64ToU8(data as string) : undefined })
+        } catch {
+          results.push({ key, data: undefined })
+        }
       }
     }
     return results
