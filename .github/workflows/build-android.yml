@@ -68,13 +68,18 @@ jobs:
         working-directory: packages/app-web/android
         run: ./gradlew assembleRelease
 
-      - name: Rename APKs with commit SHA
+      - name: Rename APKs with commit SHA and stable names
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           cp packages/app-web/android/app/build/outputs/apk/debug/app-debug.apk \
              federated-workspace-debug-${SHORT_SHA}.apk
           cp packages/app-web/android/app/build/outputs/apk/release/app-release-unsigned.apk \
              federated-workspace-release-${SHORT_SHA}.apk
+          # Stable-name copies — these are overwritten every build so the URL never changes
+          cp packages/app-web/android/app/build/outputs/apk/debug/app-debug.apk \
+             app-debug-latest.apk
+          cp packages/app-web/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+             app-release-latest.apk
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -84,10 +89,13 @@ jobs:
           body: |
             Automated build from commit ${{ github.sha }} on branch `${{ github.ref_name }}`.
 
-            **debug APK** — install directly for testing (allows USB debugging)
-            **release APK** — unsigned; enable "Install unknown apps" to sideload
+            **Stable download links (always the latest build):**
+            - [app-debug-latest.apk](https://github.com/IceCubeMaker/Federated-Chill-Workspace-Server/releases/download/latest/app-debug-latest.apk) — debug build, install directly
+            - [app-release-latest.apk](https://github.com/IceCubeMaker/Federated-Chill-Workspace-Server/releases/download/latest/app-release-latest.apk) — release build, enable "Install unknown apps" to sideload
           prerelease: true
           make_latest: true
           files: |
             federated-workspace-debug-*.apk
             federated-workspace-release-*.apk
+            app-debug-latest.apk
+            app-release-latest.apk
