@@ -15,7 +15,7 @@ export function App() {
     updateProfile,
     completeSetup,
     unlock,
-    importIdentity,
+    connectFromCode,
   } = useWorkspace()
 
   if (state.status === 'idle' || state.status === 'initializing') {
@@ -26,7 +26,7 @@ export function App() {
     return (
       <SetupPage
         onComplete={completeSetup}
-        onImport={importIdentity}
+        onSignIn={connectFromCode}
         error={state.error}
       />
     )

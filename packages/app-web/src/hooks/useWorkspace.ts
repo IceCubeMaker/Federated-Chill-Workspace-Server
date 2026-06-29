@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { DocumentId, GroupDocument } from '@federation/models'
+import type { DocumentId, GroupDocument, IdentityDocument } from '@federation/models'
 import { LocalIdentity } from '@federation/auth'
 import { FederatedWorkspace } from '@federation/app'
 
@@ -160,29 +160,58 @@ export function useWorkspace() {
   }, [initNode])
 
   /**
-   * Import an identity blob (from another device) and either go to the unlock
-   * screen (if protected) or straight to the workspace.
+   * Sign in on a new device using a connection code (identity doc ID) and password.
+   * Spins up a temporary P2P node to fetch the identity document from the swarm,
+   * reconstructs the identity from it, then fully initialises the workspace.
    */
-  const importIdentity = useCallback(async (blob: string) => {
+  const connectFromCode = useCallback(async (connectionCode: string, password: string) => {
     const identity = identityRef.current
     if (!identity) return
     setState((s) => ({ ...s, status: 'initializing' }))
     try {
-      await identity.importFromBlob(blob)
-      if (identity.isProtected()) {
-        setState((s) => ({ ...s, status: 'locked', identity }))
-      } else {
-        await initNode(identity)
-      }
+      // Temporary node — used only to fetch the identity doc from the swarm
+      const tempWs = new FederatedWorkspace(identity)
+      await tempWs.initialize({ platform: 'browser', bootstrapPeers: [], nodeRole: 'client' })
+
+      // Give peers a moment to connect and share the doc
+      await new Promise((r) => setTimeout(r, 2500))
+
+      const handle = tempWs.getPublicHandle<IdentityDocument>(connectionCode as DocumentId)
+      const identityDoc = await Promise.race([
+        handle.doc() as Promise<IdentityDocument | undefined>,
+        new Promise<undefined>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Identity not found on the network. Make sure your other device is online and connected.')),
+            15000,
+          )
+        ),
+      ])
+
+      await tempWs.shutdown()
+
+      if (!identityDoc) throw new Error('Identity document was empty')
+
+      // Reconstruct the stored identity and save it locally
+      await identity.importFromBlob(JSON.stringify({
+        peerId: identityDoc.profile.userId,
+        publicKeyHex: identityDoc.publicKeyHex,
+        encrypted: {
+          ciphertextHex: identityDoc.encryptedCiphertextHex,
+          nonceHex: identityDoc.encryptedNonceHex,
+          saltHex: identityDoc.encryptedSaltHex,
+        },
+        rootDocId: identityDoc.rootDocId || undefined,
+        identityDocId: connectionCode,
+        profile: identityDoc.profile,
+      }))
+
+      // Decrypt the private key, then start the real workspace
+      await identity.unlock(password)
+      await initNode(identity)
     } catch (err) {
       setState((s) => ({ ...s, status: 'needs_setup', error: String(err) }))
     }
   }, [initNode])
-
-  /** Export the current identity as a blob for transfer to another device. */
-  const exportIdentity = useCallback((): string => {
-    return identityRef.current?.exportBlob() ?? ''
-  }, [])
 
   const switchGroup = useCallback((id: DocumentId | null) => {
     wsRef.current?.switchGroup(id)
@@ -214,7 +243,6 @@ export function useWorkspace() {
     updateProfile,
     completeSetup,
     unlock,
-    importIdentity,
-    exportIdentity,
+    connectFromCode,
   }
 }
