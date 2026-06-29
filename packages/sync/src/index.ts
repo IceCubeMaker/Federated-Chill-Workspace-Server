@@ -1,6 +1,6 @@
 import type { Libp2p } from '@libp2p/interface'
 import type { SyncState, DocumentId } from '@federation/types'
-import type { Platform } from '@federation/store'
+import type { Platform, StorageAdapterInterface } from '@federation/store'
 import { createLibp2pNode, PeerRouting, PubSubManager, type NodeRole } from '@federation/network'
 import { getStorageAdapter, RepoManager } from '@federation/store'
 import { ReplicationStrategy } from './replication-strategy.js'
@@ -16,6 +16,8 @@ export { StateMachine } from './state-machine.js'
 export interface FederationConfig {
   dataDir?: string
   platform: Platform
+  /** Optional storage adapter override (e.g. Capacitor Filesystem on Android). */
+  storageAdapter?: StorageAdapterInterface
   bootstrapPeers?: string[]
   listenAddresses?: string[]
   /**
@@ -45,7 +47,7 @@ export class WorkspaceFederation {
     await this.node.start()
 
     // 2. Store layer
-    const storageAdapter = await getStorageAdapter(platform, dataDir)
+    const storageAdapter = config.storageAdapter ?? await getStorageAdapter(platform, dataDir)
     this.repo = new RepoManager(storageAdapter, platform)
 
     // 3. Services

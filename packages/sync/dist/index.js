@@ -281,7 +281,7 @@ var WorkspaceFederation = class {
     const { dataDir, platform, bootstrapPeers = [], listenAddresses, nodeRole } = config;
     this.node = await createLibp2pNode({ bootstrapPeers, listenAddresses, nodeRole });
     await this.node.start();
-    const storageAdapter = await getStorageAdapter(platform, dataDir);
+    const storageAdapter = config.storageAdapter ?? await getStorageAdapter(platform, dataDir);
     this.repo = new RepoManager(storageAdapter, platform);
     this.pubsub = new PubSubManager(this.node);
     this.routing = new PeerRouting(this.node);

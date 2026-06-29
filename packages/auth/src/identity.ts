@@ -66,6 +66,14 @@ async function storageWrite(key: string, value: string): Promise<void> {
   await writeFile(key, value, 'utf8')
 }
 
+// ─── IdentityStorageProvider ─────────────────────────────────────────────────
+
+/** Plug-in storage for LocalIdentity. Default: localStorage / Node.js fs. */
+export interface IdentityStorageProvider {
+  load(): Promise<string | null>
+  save(value: string): Promise<void>
+}
+
 // ─── LocalIdentity ────────────────────────────────────────────────────────────
 
 export class LocalIdentity {
@@ -74,11 +82,22 @@ export class LocalIdentity {
   private unlockedKey: Uint8Array | null = null
 
   /**
-   * @param dataDir  On Node.js: filesystem directory path.
-   *                 In browser: localStorage namespace key (e.g. "federation-workspace").
+   * @param dataDir   On Node.js: filesystem directory path.
+   *                  In browser: localStorage namespace key (e.g. "federation-workspace").
+   * @param provider  Optional custom storage (e.g. Capacitor Filesystem on Android).
    */
-  constructor(dataDir: string) {
+  constructor(dataDir: string, private readonly provider?: IdentityStorageProvider) {
     this.storageKey = _ls ? `${dataDir}:identity` : `${dataDir}/identity.json`
+  }
+
+  private async readIdentity(): Promise<string | null> {
+    if (this.provider) return this.provider.load()
+    return storageRead(this.storageKey)
+  }
+
+  private async writeIdentity(value: string): Promise<void> {
+    if (this.provider) return this.provider.save(value)
+    return storageWrite(this.storageKey, value)
   }
 
   /**
@@ -86,7 +105,7 @@ export class LocalIdentity {
    * Returns true if a brand-new identity was generated (first launch).
    */
   async load(): Promise<boolean> {
-    const raw = await storageRead(this.storageKey)
+    const raw = await this.readIdentity()
     if (raw) {
       this.stored = JSON.parse(raw) as StoredIdentity
       if (this.stored.privateKeyHex) {
@@ -161,7 +180,7 @@ export class LocalIdentity {
       saltHex: toHex(salt),
     }
     delete this.stored.privateKeyHex
-    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+    await this.writeIdentity(JSON.stringify(this.stored, null, 2))
   }
 
   /**
@@ -186,7 +205,7 @@ export class LocalIdentity {
     } else {
       this.unlockedKey = null
     }
-    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+    await this.writeIdentity(JSON.stringify(this.stored, null, 2))
   }
 
   getRootDocId(): string | null {
@@ -199,7 +218,7 @@ export class LocalIdentity {
 
   async setIdentityDocId(id: string): Promise<void> {
     this.stored.identityDocId = id
-    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+    await this.writeIdentity(JSON.stringify(this.stored, null, 2))
   }
 
   /** Returns the password-encrypted private key fields, or null if unprotected. */
@@ -209,7 +228,7 @@ export class LocalIdentity {
 
   async setRootDocId(id: string): Promise<void> {
     this.stored.rootDocId = id
-    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+    await this.writeIdentity(JSON.stringify(this.stored, null, 2))
   }
 
   /**
@@ -236,7 +255,7 @@ export class LocalIdentity {
 
   async updateProfile(patch: { displayName?: string }): Promise<void> {
     this.stored.profile = { ...this.stored.profile, ...patch }
-    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+    await this.writeIdentity(JSON.stringify(this.stored, null, 2))
   }
 
   getPeerId(): PeerIdStr {
@@ -295,7 +314,7 @@ export class LocalIdentity {
     }
 
     this.unlockedKey = keypair.privateKey
-    await storageWrite(this.storageKey, JSON.stringify(this.stored, null, 2))
+    await this.writeIdentity(JSON.stringify(this.stored, null, 2))
   }
 
   #requireKey(): Uint8Array {

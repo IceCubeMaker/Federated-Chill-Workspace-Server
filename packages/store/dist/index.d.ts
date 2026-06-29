@@ -1,4 +1,5 @@
 import { StorageAdapter, DocHandle, Doc } from '@automerge/automerge-repo';
+export { Chunk, StorageAdapter, StorageAdapterInterface } from '@automerge/automerge-repo';
 import { DocumentId } from '@federation/types';
 
 declare class DocumentCrypto {

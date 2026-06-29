@@ -2,6 +2,17 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type { DocumentId, GroupDocument, IdentityDocument } from '@federation/models'
 import { LocalIdentity } from '@federation/auth'
 import { FederatedWorkspace } from '@federation/app'
+import { CapacitorStorageAdapter } from '../lib/capacitor-storage-adapter.js'
+import { createCapacitorIdentityStorage } from '../lib/capacitor-identity-storage.js'
+
+// True only when running inside a Capacitor native shell (Android / iOS).
+function detectNative(): boolean {
+  const cap = (globalThis as Record<string, unknown>)['Capacitor'] as Record<string, unknown> | undefined
+  if (!cap) return false
+  const fn = cap['isNativePlatform']
+  return typeof fn === 'function' && (fn as () => boolean)()
+}
+const IS_NATIVE = detectNative()
 
 export type WorkspaceStatus = 'idle' | 'initializing' | 'needs_setup' | 'locked' | 'ready' | 'error'
 
@@ -20,8 +31,11 @@ export interface WorkspaceState {
   connectionCode: string | null
 }
 
-function getBrowserDataDir(): string {
-  return 'federation-workspace'
+function makeIdentity(): LocalIdentity {
+  return new LocalIdentity(
+    'federation-workspace',
+    IS_NATIVE ? createCapacitorIdentityStorage() : undefined,
+  )
 }
 
 export function useWorkspace() {
@@ -59,6 +73,7 @@ export function useWorkspace() {
     const ws = new FederatedWorkspace(identity)
     await ws.initialize({
       platform: 'browser',
+      storageAdapter: IS_NATIVE ? new CapacitorStorageAdapter() : undefined,
       bootstrapPeers: [],
       nodeRole: 'client',
     })
@@ -97,7 +112,7 @@ export function useWorkspace() {
     async function init() {
       setState((s) => ({ ...s, status: 'initializing' }))
       try {
-        const identity = new LocalIdentity(getBrowserDataDir())
+        const identity = makeIdentity()
         const isNew = await identity.load()
         identityRef.current = identity
 
@@ -171,7 +186,7 @@ export function useWorkspace() {
     try {
       // Temporary node — used only to fetch the identity doc from the swarm
       const tempWs = new FederatedWorkspace(identity)
-      await tempWs.initialize({ platform: 'browser', bootstrapPeers: [], nodeRole: 'client' })
+      await tempWs.initialize({ platform: 'browser', storageAdapter: IS_NATIVE ? new CapacitorStorageAdapter() : undefined, bootstrapPeers: [], nodeRole: 'client' })
 
       // Give peers a moment to connect and share the doc
       await new Promise((r) => setTimeout(r, 2500))

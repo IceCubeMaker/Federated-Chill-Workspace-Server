@@ -1,7 +1,7 @@
 import * as _automerge_automerge_repo from '@automerge/automerge-repo';
 import { PeerId, Libp2p } from '@libp2p/interface';
 import { DocumentId, PeerIdStr, CheckpointMessage, SyncState } from '@federation/types';
-import { RepoManager, Platform } from '@federation/store';
+import { RepoManager, Platform, StorageAdapterInterface } from '@federation/store';
 import { PubSubManager, PeerRouting, NodeRole } from '@federation/network';
 
 declare class ReplicationStrategy {
@@ -55,6 +55,8 @@ declare class StateMachine {
 interface FederationConfig {
     dataDir?: string;
     platform: Platform;
+    /** Optional storage adapter override (e.g. Capacitor Filesystem on Android). */
+    storageAdapter?: StorageAdapterInterface;
     bootstrapPeers?: string[];
     listenAddresses?: string[];
     /**
