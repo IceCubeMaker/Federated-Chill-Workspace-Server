@@ -11,6 +11,8 @@ export function LoadingPage({ message = 'Starting up…' }: { message?: string }
       justifyContent: 'center',
       gap: space[4],
       background: color.surface0,
+      paddingTop: 'env(safe-area-inset-top, 0px)',
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
     }}>
       <div style={{
         width: 40,

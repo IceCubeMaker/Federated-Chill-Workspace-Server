@@ -37,8 +37,8 @@ export function ChannelSidebar({
         alignItems: 'center',
         background: color.surface1,
         borderRight: `1px solid ${color.border}`,
-        paddingTop: space[2],
-        gap: space[2],
+        paddingTop: space[1],
+        gap: space[1],
       }}>
         <button
           onClick={onToggle}
@@ -48,9 +48,13 @@ export function ChannelSidebar({
             border: 'none',
             color: color.textSecondary,
             cursor: 'pointer',
-            fontSize: '18px',
+            fontSize: '20px',
             lineHeight: 1,
-            padding: space[2],
+            width: 44,
+            height: 44,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             borderRadius: radius.sm,
             position: 'relative',
             outline: 'none',
@@ -60,8 +64,8 @@ export function ChannelSidebar({
           {totalUnread > 0 && (
             <span style={{
               position: 'absolute',
-              top: 4,
-              right: 4,
+              top: 8,
+              right: 8,
               width: 8,
               height: 8,
               borderRadius: '50%',
@@ -78,6 +82,7 @@ export function ChannelSidebar({
             overflow: 'hidden',
             maxHeight: 100,
             whiteSpace: 'nowrap',
+            padding: `${space[1]} 0`,
           }}>
             #{activeChannel.name}
           </span>
@@ -137,7 +142,11 @@ export function ChannelSidebar({
                 cursor: 'pointer',
                 fontSize: fontSize.md,
                 lineHeight: 1,
-                padding: `0 ${space[1]}`,
+                width: 32,
+                height: 32,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 borderRadius: radius.sm,
                 outline: 'none',
               }}
@@ -161,7 +170,8 @@ export function ChannelSidebar({
                 display: 'flex',
                 alignItems: 'center',
                 gap: space[2],
-                padding: `${space[1]} ${space[3]}`,
+                padding: `${space[2]} ${space[3]}`,
+                minHeight: 40,
                 background: isActive ? color.surface3 : 'transparent',
                 border: 'none',
                 borderRadius: 0,

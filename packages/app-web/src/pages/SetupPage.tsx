@@ -73,12 +73,16 @@ export function SetupPage({ onComplete, onSignIn, error }: SetupPageProps) {
   return (
     <div style={{
       height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      overflowY: 'auto',
       background: `radial-gradient(ellipse at 50% 0%, #1e1e3a 0%, ${color.surface0} 70%)`,
-      padding: space[4],
     }}>
+      <div style={{
+        minHeight: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: `max(${space[6]}, env(safe-area-inset-top, 0px)) ${space[4]} max(${space[6]}, env(safe-area-inset-bottom, 0px))`,
+      }}>
       <div style={{
         width: '100%',
         maxWidth: 420,
@@ -229,6 +233,7 @@ export function SetupPage({ onComplete, onSignIn, error }: SetupPageProps) {
         <p style={{ color: color.textMuted, fontSize: fontSize.xs, textAlign: 'center' }}>
           No account. No server. No tracking.
         </p>
+      </div>
       </div>
     </div>
   )

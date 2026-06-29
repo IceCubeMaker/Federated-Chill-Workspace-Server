@@ -35,9 +35,9 @@ const variantStyles: Record<ButtonVariant, React.CSSProperties> = {
 }
 
 const sizeStyles: Record<ButtonSize, React.CSSProperties> = {
-  sm: { padding: `${space[1]} ${space[2]}`, fontSize: fontSize.xs },
-  md: { padding: `${space[2]} ${space[4]}`, fontSize: fontSize.sm },
-  lg: { padding: `${space[3]} ${space[6]}`, fontSize: fontSize.base },
+  sm: { padding: `${space[1]} ${space[2]}`, fontSize: fontSize.xs, minHeight: 32 },
+  md: { padding: `${space[2]} ${space[4]}`, fontSize: fontSize.sm, minHeight: 44 },
+  lg: { padding: `${space[3]} ${space[6]}`, fontSize: fontSize.base, minHeight: 48 },
 }
 
 export function Button({

@@ -40,11 +40,12 @@ export function Input({ label, error, hint, icon, style, id, ...rest }: InputPro
           id={inputId}
           style={{
             width: '100%',
+            minHeight: 44,
             background: color.surface2,
             border: `1px solid ${error ? color.error : color.border}`,
             borderRadius: radius.md,
             color: color.textPrimary,
-            fontSize: fontSize.sm,
+            fontSize: fontSize.md,
             padding: icon ? `${space[2]} ${space[3]} ${space[2]} ${space[8]}` : `${space[2]} ${space[3]}`,
             outline: 'none',
             transition: transition.fast,

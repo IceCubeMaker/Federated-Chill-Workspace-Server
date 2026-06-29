@@ -31,12 +31,16 @@ export function UnlockPage({ displayName, onUnlock, error }: UnlockPageProps) {
   return (
     <div style={{
       height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      overflowY: 'auto',
       background: `radial-gradient(ellipse at 50% 0%, #1e1e3a 0%, ${color.surface0} 70%)`,
-      padding: space[4],
     }}>
+      <div style={{
+        minHeight: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: `max(${space[6]}, env(safe-area-inset-top, 0px)) ${space[4]} max(${space[6]}, env(safe-area-inset-bottom, 0px))`,
+      }}>
       <div style={{
         width: '100%',
         maxWidth: 380,
@@ -99,6 +103,7 @@ export function UnlockPage({ displayName, onUnlock, error }: UnlockPageProps) {
             Unlock
           </Button>
         </div>
+      </div>
       </div>
     </div>
   )

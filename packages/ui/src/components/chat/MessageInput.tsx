@@ -100,6 +100,8 @@ export function MessageInput({ onSend, members, disabled, disabledReason, placeh
     }
   }
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+
   return (
     <div style={{ padding: `${space[2]} ${space[3]} ${space[3]}`, position: 'relative' }}>
       {/* @mention autocomplete */}
@@ -161,7 +163,7 @@ export function MessageInput({ onSend, members, disabled, disabledReason, placeh
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           disabled={disabled || sending}
-          placeholder={disabled ? (disabledReason ?? 'No permission to send messages') : (placeholder ?? 'Message… (Ctrl+Enter to send, @ to mention)')}
+          placeholder={disabled ? (disabledReason ?? 'No permission to send messages') : (placeholder ?? (isMobile ? 'Message…' : 'Message… (Ctrl+Enter to send, @ to mention)'))}
           rows={1}
           style={{
             flex: 1,
@@ -169,7 +171,7 @@ export function MessageInput({ onSend, members, disabled, disabledReason, placeh
             border: 'none',
             outline: 'none',
             color: color.textPrimary,
-            fontSize: fontSize.sm,
+            fontSize: fontSize.md,
             lineHeight: 1.5,
             resize: 'none',
             minHeight: 24,
@@ -192,19 +194,26 @@ export function MessageInput({ onSend, members, disabled, disabledReason, placeh
             borderRadius: radius.md,
             color: '#fff',
             cursor: value.trim() && !disabled ? 'pointer' : 'not-allowed',
-            fontSize: fontSize.sm,
+            fontSize: isMobile ? fontSize.md : fontSize.sm,
             fontWeight: fontWeight.semibold,
+            minWidth: 44,
+            minHeight: 44,
             padding: `${space[1]} ${space[3]}`,
             flexShrink: 0,
             transition: 'background 150ms ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {sending ? '…' : '↵'}
+          {sending ? '…' : '↑'}
         </button>
       </div>
-      <p style={{ fontSize: 10, color: color.textMuted, margin: `${space[1]} 0 0`, paddingLeft: space[1] }}>
-        Markdown supported · Ctrl+Enter to send
-      </p>
+      {!isMobile && (
+        <p style={{ fontSize: 10, color: color.textMuted, margin: `${space[1]} 0 0`, paddingLeft: space[1] }}>
+          Markdown supported · Ctrl+Enter to send
+        </p>
+      )}
     </div>
   )
 }

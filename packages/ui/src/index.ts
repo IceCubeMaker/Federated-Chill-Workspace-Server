@@ -1,6 +1,8 @@
 export * from './tokens/index.js'
 export { Button } from './components/Button.js'
 export type { ButtonProps, ButtonVariant, ButtonSize } from './components/Button.js'
+export { IconButton } from './components/IconButton.js'
+export type { IconButtonProps } from './components/IconButton.js'
 export { Input } from './components/Input.js'
 export type { InputProps } from './components/Input.js'
 export { Badge } from './components/Badge.js'

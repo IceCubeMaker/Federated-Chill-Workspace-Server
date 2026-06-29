@@ -27,6 +27,7 @@ export function GroupSwitcher({ groups, onCreateGroup, onSwitchGroup, currentUse
         width: 64,
         height: '100%',
         flexShrink: 0,
+        paddingTop: 'env(safe-area-inset-top, 0px)',
       }}
     >
       {/* Scrollable group list */}
@@ -52,8 +53,16 @@ export function GroupSwitcher({ groups, onCreateGroup, onSwitchGroup, currentUse
                   borderRadius: isActive ? radius.md : radius.full,
                   cursor: 'pointer',
                   padding: 0,
+                  width: 44,
+                  height: 44,
+                  minWidth: 44,
+                  minHeight: 44,
                   transition: 'all 200ms ease',
                   outline: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
                 }}
               >
                 <Avatar
@@ -74,8 +83,10 @@ export function GroupSwitcher({ groups, onCreateGroup, onSwitchGroup, currentUse
           <button
             onClick={onCreateGroup}
             style={{
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
+              minWidth: 44,
+              minHeight: 44,
               borderRadius: radius.full,
               background: color.surface2,
               border: `2px dashed ${color.border}`,
@@ -97,7 +108,8 @@ export function GroupSwitcher({ groups, onCreateGroup, onSwitchGroup, currentUse
       {/* Pinned profile button */}
       {currentUser && (
         <div style={{
-          padding: `${space[2]} 0 ${space[3]}`,
+          padding: `${space[2]} 0`,
+          paddingBottom: `max(${space[3]}, env(safe-area-inset-bottom, 0px))`,
           display: 'flex',
           justifyContent: 'center',
           flexShrink: 0,
@@ -113,13 +125,18 @@ export function GroupSwitcher({ groups, onCreateGroup, onSwitchGroup, currentUse
                 cursor: 'pointer',
                 borderRadius: radius.full,
                 outline: 'none',
+                width: 44,
+                height: 44,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              <Avatar name={currentUser.name} size={32} />
+              <Avatar name={currentUser.name} size={36} />
               <span style={{
                 position: 'absolute',
-                bottom: 0,
-                right: 0,
+                bottom: 6,
+                right: 6,
                 width: 10,
                 height: 10,
                 borderRadius: '50%',
