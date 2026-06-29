@@ -41,6 +41,7 @@ export function GroupChatView({
   const [createOpen, setCreateOpen] = useState(false)
   const [newChannelName, setNewChannelName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const activeIdRef = useRef(activeChannelId)
   activeIdRef.current = activeChannelId
 
@@ -120,12 +121,15 @@ export function GroupChatView({
     const name = newChannelName.trim()
     if (!name) return
     setCreating(true)
+    setCreateError(null)
     try {
       const ch = await chat.createChannel(groupId, name)
       setChannels(chat.getChannels(groupId))
       setActiveChannelId(ch.id)
       setCreateOpen(false)
       setNewChannelName('')
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : String(err))
     } finally {
       setCreating(false)
     }
@@ -202,7 +206,7 @@ export function GroupChatView({
       </div>
 
       {/* Create channel modal */}
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create a channel">
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); setCreateError(null) }} title="Create a channel">
         <div style={{ display: 'flex', flexDirection: 'column', gap: space[4] }}>
           <Input
             label="Channel name"
@@ -211,8 +215,13 @@ export function GroupChatView({
             placeholder="e.g. announcements"
             onKeyDown={(e) => { if (e.key === 'Enter') void handleCreateChannel() }}
           />
+          {createError && (
+            <p style={{ margin: 0, fontSize: fontSize.sm, color: color.error }}>
+              {createError}
+            </p>
+          )}
           <div style={{ display: 'flex', gap: space[3], justifyContent: 'flex-end' }}>
-            <Button variant="ghost" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => { setCreateOpen(false); setCreateError(null) }}>Cancel</Button>
             <Button onClick={() => void handleCreateChannel()} loading={creating} disabled={!newChannelName.trim()}>
               Create
             </Button>

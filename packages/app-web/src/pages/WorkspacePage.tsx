@@ -237,14 +237,14 @@ function GroupView({
   identity: WorkspaceState['identity']
 }) {
   const [view, setView] = useState<'chat' | 'settings'>('chat')
-  const [canCreateChannel, setCanCreateChannel] = useState(false)
-  const [canSendMessage, setCanSendMessage] = useState(true)
   const members = useMembersMap(doc, currentUserId, identity)
 
-  useEffect(() => {
-    void workspace.permissions.canPerform(currentUserId, groupId, 'create_channel').then(setCanCreateChannel)
-    void workspace.permissions.canPerform(currentUserId, groupId, 'send_message').then(setCanSendMessage)
-  }, [workspace.permissions, currentUserId, groupId])
+  // Derive permissions synchronously from the already-loaded doc rather than
+  // async canPerform (which re-fetches via docSync and may transiently return false).
+  const canCreateChannel = Object.values(doc.roles ?? {}).some(
+    (r) => r.isAdministrator && r.members.includes(currentUserId)
+  )
+  const canSendMessage = true
 
   const cb = {
     onUpdateMetadata: async (patch: Partial<GroupDocument['metadata']>) => {

@@ -59,7 +59,7 @@ export class ChatManager {
 
     const channelId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') as ChannelId
     const doc = this.federation.getDocument<GroupDocument>(groupId)
-    const position = Object.keys(doc.channels ?? {}).length
+    const position = Object.keys(doc?.channels ?? {}).length
 
     const channel: Channel = {
       id: channelId,
